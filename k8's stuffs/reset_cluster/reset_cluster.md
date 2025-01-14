@@ -18,7 +18,6 @@ This guide provides step-by-step instructions to **reset a Kubernetes cluster**,
    - [Step 6: Clean Up Container Runtime Directories](#step-6-clean-up-container-runtime-directories-)
    - [Step 7: Restart Container Runtime](#step-7-restart-container-runtime-)
 3. [Verification](#verification-)
-4. [Download](#download-)
 
 ---
 
