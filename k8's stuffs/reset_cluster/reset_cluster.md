@@ -12,11 +12,11 @@ This guide provides step-by-step instructions to **reset a Kubernetes cluster**,
 2. [Steps to Reset Kubernetes Cluster](#steps-to-reset-kubernetes-cluster-)
    - [Step 1: Drain Nodes](#step-1-drain-nodes-)
    - [Step 2: Remove Pods and Containers](#step-2-remove-pods-and-containers-)
-   - [Step 3: Reset Kubernetes Cluster](#step-3-reset-kubernetes-cluster-)
+   - [Step 3: Restart Container Runtime](#step-3-restart-container-runtime-)
    - [Step 4: Clean Up Folders and Files](#step-4-clean-up-folders-and-files-)
    - [Step 5: Remove CNI Plugins](#step-5-remove-cni-plugins-)
    - [Step 6: Clean Up Container Runtime Directories](#step-6-clean-up-container-runtime-directories-)
-   - [Step 7: Restart Container Runtime](#step-7-restart-container-runtime-)
+   - [Step 7: Reset Kubernetes Cluster](#step-7-reset-kubernetes-cluster-)
 3. [Verification](#verification-)
 
 ---
@@ -67,19 +67,17 @@ sudo crictl rmp $(sudo crictl pods -q)
 
 ---
 
-### **Step 3: Reset Kubernetes Cluster** 🔧
 
-Use the `kubeadm reset` command to reset the cluster.
+### **Step 3: Restart Container Runtime** 🔄
+
+Restart the container runtime to ensure all changes take effect.
 
 ```bash
-sudo kubeadm reset
+sudo systemctl restart containerd  # or crio, or docker, depending on your runtime
 ```
 
-This command will:
-- Clean up the Kubernetes control plane.
-- Remove all Kubernetes configuration files.
-
 ---
+
 
 ### **Step 4: Clean Up Folders and Files** 🧹
 
@@ -140,13 +138,17 @@ sudo systemctl start docker
 
 ---
 
-### **Step 7: Restart Container Runtime** 🔄
+### **Step 7: Reset Kubernetes Cluster** 🔧
 
-Restart the container runtime to ensure all changes take effect.
+Use the `kubeadm reset` command to reset the cluster.
 
 ```bash
-sudo systemctl restart containerd  # or crio, or docker, depending on your runtime
+sudo kubeadm reset
 ```
+
+This command will:
+- Clean up the Kubernetes control plane.
+- Remove all Kubernetes configuration files.
 
 ---
 
