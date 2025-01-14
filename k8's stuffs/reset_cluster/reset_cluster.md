@@ -55,6 +55,9 @@ sudo crictl pods
 # List all containers
 sudo crictl ps -a
 
+#Stop all the pods first
+sudo crictl stop $(sudo crictl ps -q)
+
 # Remove all containers
 sudo crictl rm $(sudo crictl ps -a -q)
 
