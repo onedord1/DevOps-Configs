@@ -1,0 +1,4 @@
+# Copy and Paste your /etc/haproxy/haproxy.cfg file content and then add the below three lines
+  {% for ip in private_ip %}
+  server app{{ ip.split('.')[-1] }} {{ ip }}:80 check
+  {% endfor %}
