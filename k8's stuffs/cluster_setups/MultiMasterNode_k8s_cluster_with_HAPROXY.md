@@ -130,7 +130,6 @@ This load balancer nodes acts as a single, stable entry point (VIP or DNS name) 
 By following these steps, you will have a highly available Kubernetes cluster with two master nodes and three worker nodes, and a load balancer distributing traffic between the master nodes. This setup ensures that if one master node fails, the other will continue to serve the API requests.
 
 
-
 # Verification
 
 ### Step 1: Install etcdctl
