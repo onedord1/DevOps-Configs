@@ -1,5 +1,3 @@
-Here's a colorful `README.md` file for you with Markdown styling:  
-
 ```md
 # 🚀 Longhorn CSI Mount Issue Fix  
 
