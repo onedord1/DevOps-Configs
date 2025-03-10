@@ -1,0 +1,39 @@
+#stage 1
+FROM node:22 AS builder
+WORKDIR /app 
+COPY . .
+RUN npm install -g pnpm
+RUN pnpm install --force && \
+    pnpm run build
+
+
+
+#Stage-2
+    
+FROM php:8.2-fpm
+
+WORKDIR /var/www/html
+
+COPY . /var/www/html
+
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip unzip curl \
+    libexif-dev && \
+    docker-php-ext-install pdo_mysql exif && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+
+
+RUN composer update --no-dev --optimize-autoloader
+
+COPY --from=builder /app/public/build /var/www/html/public/build
+
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
