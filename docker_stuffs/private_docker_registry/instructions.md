@@ -5,6 +5,7 @@ This guide walks you through the process of setting up and securing a local Dock
 
 ## Prerequisites
 
+- Make sure your machine has public IP associate with itself.
 - Ensure you have `sudo` privileges on your system.
 - Update your system's package list and upgrade existing packages.
 
