@@ -22,5 +22,7 @@ module "eks" {
   cluster_version = var.cluster_version
   private_subnets = module.vpc.private_subnets
 #   aws_iam_role    = module.iam.aws_iam_role
+  cluster_role_arn = module.iam.cluster_role_arn
+  node_role_arn    = module.iam.node_role_arn
 }
 

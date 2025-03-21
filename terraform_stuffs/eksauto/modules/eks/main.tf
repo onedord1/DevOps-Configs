@@ -1,6 +1,7 @@
 resource "aws_eks_cluster" "cluster" {
   name     = var.cluster_name
-  role_arn = aws_iam_role.cluster.arn
+  # role_arn = aws_iam_role.cluster.arn
+  role_arn = var.cluster_role_arn
   version  = var.cluster_version
 
   vpc_config {
@@ -24,7 +25,8 @@ resource "aws_eks_cluster" "cluster" {
   compute_config {
     enabled       = true
     node_pools    = var.eks_auto_node_pool
-    node_role_arn = aws_iam_role.node.arn
+    # node_role_arn = aws_iam_role.node.arn
+    node_role_arn = var.node_role_arn
   }
 
   kubernetes_network_config {

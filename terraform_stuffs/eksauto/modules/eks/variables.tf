@@ -22,7 +22,12 @@ variable "private_subnets" {
   #default     = ["10.20.0.0/21", "10.20.8.0/21", "10.20.16.0/21"]
 }
 
-# variable "aws_iam_role" {
-#   description = "EKS AWS IAM role"
-#   type        = string
-# }
+variable "cluster_role_arn" {
+  description = "IAM Role ARN for the EKS Cluster"
+  type        = string
+}
+
+variable "node_role_arn" {
+  description = "IAM Role ARN for the EKS Node"
+  type        = string
+}
