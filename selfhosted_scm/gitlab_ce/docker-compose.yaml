@@ -1,0 +1,54 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:17.10.4-ce.0
+    container_name: gitlab-main-server
+    restart: unless-stopped
+    hostname: 'gitlab-main-server'
+    ports:
+      - '7474:22'
+    volumes:
+      - ./config:/etc/gitlab
+      - ./logs:/var/log/gitlab
+      - ./data:/var/opt/gitlab
+    shm_size: '256m'
+    networks:
+     - frontend
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.gitlab-main-server-https.rule=Host(`gitlab.kk.host`)
+      - traefik.http.routers.gitlab-main-server-https.entrypoints=websecure
+      - traefik.http.routers.gitlab-main-server-https.tls=true
+      - traefik.http.routers.gitlab-main-server-https.tls.certresolver=cloudflare
+      - traefik.http.routers.gitlab-main-server-https.service=gitlab-svc
+      - traefik.http.services.gitlab-svc.loadbalancer.server.port=80
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/traefik.yaml:/etc/traefik/traefik.yml
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CF_API_EMAIL=kader.khan@anwargroup.com
+      - CF_API_KEY=08f7facb54cb52e0f14bb6fd446c2d7a5fe30
+    networks:
+      - frontend
+  gitlab-runner:
+    image: docker.io/gitlab/gitlab-runner:alpine-v17.9.1
+    container_name: gitlab-runner-1
+    volumes:
+      - ./runner-config/config.toml:/etc/gitlab-runner/config.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - frontend
+      
+networks:
+  frontend:
+    external: true
