@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: qa-quickops  
+  name: quickopsbe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsbe
+  template:
+    metadata:
+      labels:
+        app: quickopsbe
+    spec:
+      containers:
+      - name: quickopsbe
+        image: devopsaes/quickops-qa-be:k8s-v0.0.1
+        ports:
+          - containerPort: 8083
+        env:
+          - name: SPRING_DATASOURCE_USERNAME
+            value: "quickopsuser"
+          - name: SPRING_DATASOURCE_PASSWORD
+            value: "cPO37hd4Bfquickopsusyu"
+          - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+            value: "update"
+          - name: MYSQL_HOST
+            value: "mysql"
+          - name: MYSQL_PORT
+            value: "3306"
+          - name: MYSQL_DB
+            value: "quickops"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: qa-quickops  
+
+  name: quickopsbe-service
+spec:
+  selector:
+    app: quickopsbe
+  ports:
+    - protocol: TCP
+      port: 8083
+      targetPort: 8083
+  type: ClusterIP

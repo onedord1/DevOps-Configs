@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: qa-quickops  
+  name: quickopsfe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: quickopsfe
+  template:
+    metadata:
+      labels:
+        app: quickopsfe
+    spec:
+      containers:
+      - name: quickopsfe
+        image: docker.io/devopsaes/quickopsfe:26Feb-05-14-0347b63
+        ports:
+          - containerPort: 80
+        resources:
+          requests:
+            memory: "100Mi"
+            cpu: "25m"
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: qa-quickops  
+
+  name: quickopsfe-service
+spec:
+  selector:
+    app: quickopsfe
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP

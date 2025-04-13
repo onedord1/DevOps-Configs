@@ -1,0 +1,1 @@
+it will take the prefix and remove it from the URL and the forward the request to the backend means grade-submission-api.

@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: qa-quickops  
+  name: quickopsgo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsgo
+  template:
+    metadata:
+      labels:
+        app: quickopsgo
+    spec:
+      containers:
+      - name: quickopsgo
+        image: devopsaes/cloudhub:0.0.74
+        ports:
+          - containerPort: 8084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: qa-quickops  
+
+  name: quickopsgo-service
+spec:
+  selector:
+    app: quickopsgo
+  ports:
+    - protocol: TCP
+      port: 8084
+      targetPort: 8084
+  type: ClusterIP

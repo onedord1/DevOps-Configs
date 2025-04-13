@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qa-quickops-ingress
+  namespace: qa-quickops
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: 'true'
+    # nginx.ingress.kubernetes.io/rewrite-target: /$1
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: qa.quickops.io
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: quickopsfe-service
+                port:
+                  number: 80
+            path: /?(.*)
+    - host: qabe.quickops.io
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: quickopsbe-service
+                port:
+                  number: 8083
+            path: /?(.*)
+    - host: qago.quickops.io
+      http:
+        paths:
+          - pathType: ImplementationSpecific
+            backend:
+              service:
+                name: quickopsgo-service
+                port:
+                  number: 8084
+            path: /?(.*)
+  # This section is only required if TLS is to be enabled for the Ingress
+  tls:
+    - hosts:
+      - qa.quickops.io
+      - qabe.quickops.io
+      - qago.quickops.io
+      secretName: letsencrypt-prod
