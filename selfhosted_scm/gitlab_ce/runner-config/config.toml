@@ -1,4 +1,11 @@
+concurrent = 1
+check_interval = 0
+connection_max_age = "10m0s"
+shutdown_timeout = 0
 log_level = "warning"
+
+[session_server]
+  session_timeout = 1800
 
 [[runners]]
   name = "gitlab-runner-1"
