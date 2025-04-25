@@ -1,0 +1,25 @@
+apiVersion: k0sctl.k0sproject.io/v1beta1
+kind: Cluster
+metadata:
+  name: k0s-cluster
+  user: admin
+spec:
+  hosts:
+  - ssh:
+      address: 172.17.17.182
+      user: master
+      port: 22
+      keyPath: ~/.ssh/id_ed25519
+    role: controller
+  - ssh:
+      address: 172.17.17.183
+      user: master
+      port: 22
+      keyPath: ~/.ssh/id_ed25519
+    role: worker
+  - ssh:
+      address: 172.17.17.184
+      user: master
+      port: 22
+      keyPath: ~/.ssh/id_ed25519
+    role: worker

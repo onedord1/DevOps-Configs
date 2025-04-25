@@ -1,0 +1,45 @@
+apiVersion: k0sctl.k0sproject.io/v1beta1
+kind: Cluster
+metadata:
+  name: my-k0s-cluster
+  user: admin
+spec:
+  hosts:
+  - role: controller
+    installFlags:
+    - --debug
+    ssh:
+      address: 10.0.0.1
+      user: root
+      port: 22
+      keyPath: ~/.ssh/id_rsa
+  - role: worker
+    installFlags:
+    - --debug
+    ssh:
+      address: 10.0.0.2
+  k0s:
+    version: 0.10.0
+    config:
+      apiVersion: k0s.k0sproject.io/v1beta1
+      kind: ClusterConfig
+      metadata:
+        name: my-k0s-cluster
+      spec:
+        images:
+          calico:
+            cni:
+              image: calico/cni
+              version: v3.16.2
+  options:
+    wait:
+      enabled: true
+    drain:
+      enabled: true
+    evictTaint:
+      enabled: false
+      taint: k0sctl.k0sproject.io/evict=true
+      effect: NoExecute
+    concurrency:
+      limit: 30
+      uploads: 5
