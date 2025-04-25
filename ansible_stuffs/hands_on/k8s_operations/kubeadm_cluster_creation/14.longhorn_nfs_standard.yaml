@@ -1,0 +1,57 @@
+---
+- hosts: masters
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Download Helm signing key
+      ansible.builtin.get_url:
+        url: https://baltocdn.com/helm/signing.asc
+        dest: /tmp/signing.asc
+        mode: '0644'
+
+    - name: Convert signing key to GPG format
+      ansible.builtin.command:
+        cmd: gpg --dearmor -o /usr/share/keyrings/helm.gpg /tmp/signing.asc
+      args:
+        creates: /usr/share/keyrings/helm.gpg
+
+    - name: Install apt-transport-https
+      ansible.builtin.apt:
+        name: apt-transport-https
+        state: present
+      retries: 10
+      delay: 15
+      register: result
+      until: result is success
+      
+    - name: Add Helm repository
+      ansible.builtin.shell:
+        cmd: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" > /etc/apt/sources.list.d/helm-stable-debian.list 
+        creates: /etc/apt/sources.list.d/helm-stable-debian.list
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install Helm
+      ansible.builtin.apt:
+        name: helm
+        state: present
+      retries: 10
+      delay: 15
+      register: result
+      until: result is success
+
+    - name: Helm longhorn repo add
+      become: false
+      command: helm repo add longhorn https://charts.longhorn.io
+      
+    - name: Update helm repo
+      become: false
+      command: helm repo update
+  
+
+    - name: Helm longhorn install
+      become: false
+      command: helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.7.2
+      ignore_errors: true

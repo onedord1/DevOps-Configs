@@ -1,0 +1,27 @@
+---
+- hosts: masters
+  gather_facts: true
+  tasks:
+    - name: UID Of The User
+      command: id -u
+      register: id
+      
+    - name: Check if .kube directory exists
+      stat:
+        path: "{{ ansible_env.HOME }}/.kube"
+      register: kube_dir
+
+    - name: Delete .kube directory if present
+      become: true
+      file:
+        path: "{{ ansible_env.HOME }}/.kube"
+        state: absent
+      when: kube_dir.stat.exists
+
+    - name: Setup kubeconfig for user
+      command: "{{ item }}"
+      become: true
+      with_items:
+        - mkdir -p "{{ ansible_env.HOME }}/.kube"
+        - cp -i /etc/kubernetes/admin.conf "{{ ansible_env.HOME }}/.kube/config"
+        - chown "{{ id.stdout }}":"{{ id.stdout }}" "{{ ansible_env.HOME }}/.kube/config"

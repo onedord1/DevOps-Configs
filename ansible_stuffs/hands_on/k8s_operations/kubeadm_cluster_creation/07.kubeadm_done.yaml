@@ -1,0 +1,21 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false 
+  tasks:
+
+  - name: install kubelet kubeadm kubectl 
+    apt: 
+      name:
+      - kubelet
+      - kubeadm
+      - kubectl
+      # update_cache: true
+      state: latest
+    retries: 10
+    delay: 15
+    register: result
+    until: result is success
+    
+  - name: Hold Kubernetes packages
+    command: apt-mark hold kubelet kubeadm kubectl

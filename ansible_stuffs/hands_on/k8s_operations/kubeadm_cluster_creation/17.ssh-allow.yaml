@@ -1,0 +1,18 @@
+---
+- name: Ensure PasswordAuthentication is set to yes
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update PasswordAuthentication in 60-cloudimg-settings.conf
+      lineinfile:
+        path: /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+        regexp: '^PasswordAuthentication\s+no'
+        line: 'PasswordAuthentication yes'
+        state: present
+        backup: yes
+
+    - name: Restart SSH service
+      service:
+        name: sshd
+        state: restarted

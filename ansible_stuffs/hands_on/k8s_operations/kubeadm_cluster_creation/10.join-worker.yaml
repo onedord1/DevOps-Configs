@@ -1,0 +1,14 @@
+- hosts: masters
+  #become: true
+  tasks:
+
+  - name: Retrieve Join Command
+    shell: kubeadm token create --print-join-command
+    register: join_command_raw
+
+- hosts: workers
+  become: true
+  tasks:
+    - name: join worker
+      ignore_errors: true
+      ansible.builtin.command: "{{ hostvars['master1']['join_command_raw']['stdout_lines'][0] }}"

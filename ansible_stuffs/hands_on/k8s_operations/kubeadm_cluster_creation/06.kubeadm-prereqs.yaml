@@ -1,0 +1,35 @@
+- hosts: all
+  become: true
+  gather_facts: false 
+  tasks:
+
+  - name: install kubeadm prerquisites
+    ansible.builtin.apt:
+      name:
+      - apt-transport-https 
+      - ca-certificates 
+      - curl 
+      - gpg
+      state: present
+    retries: 10
+    delay: 15
+    register: result
+    until: result is success
+
+      # update_cache: true
+  
+  - name: Ensure /etc/apt/keyrings directory exists
+    file:
+      path: /etc/apt/keyrings
+      state: directory
+      mode: '0755'
+  - name: Add an apt signing key
+    apt_key:
+      url: https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key
+      state: present
+      keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - name: Adding apt repository for Kubernetes
+    apt_repository:
+      repo: deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /
+      state: present
+      filename: /etc/apt/sources.list.d/kubernetes

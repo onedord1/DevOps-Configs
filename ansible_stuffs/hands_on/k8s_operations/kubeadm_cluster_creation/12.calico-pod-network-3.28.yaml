@@ -1,0 +1,62 @@
+- hosts: masters
+  become: true
+  tasks:
+  - name: apply calico operator
+    ignore_errors: true
+    ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/tigera-operator.yaml
+    register: apply_calico_operator
+
+  - name: Copy calico custom resource
+    ansible.builtin.template:
+      src: calico-cr.yaml.j2
+      dest: /tmp/cr.yaml
+    when: apply_calico_operator is succeeded
+
+
+  - name: Update CIDR in Calico configuration
+    ansible.builtin.lineinfile:
+      path: /tmp/cr.yaml
+      regexp: '^ *cidr:.*'
+      line: "      cidr: {{ hostvars['master1']['pod_network_cidr'] }}"
+    when: apply_calico_operator is succeeded
+
+  - name: Install custom resource pod network
+    become: false
+    command: kubectl create -f /tmp/cr.yaml
+    register: install_calico_custom_resource
+    when: apply_calico_operator is succeeded
+
+
+
+
+
+
+
+# - hosts: masters
+#   become: true
+#   tasks:
+#   - name: apply calico operator
+#     ignore_errors: true
+#     ansible.builtin.command: kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+#   - name: Copy calico custom resource
+#     ignore_errors: true
+#     ansible.builtin.template:
+#       src: calico-cr.yaml.j2
+#       dest: /tmp/cr.yaml
+#     register: copy_calico_custom_resource
+
+#   - name: Update CIDR in Calico configuration
+#     ansible.builtin.lineinfile:
+#       path: /tmp/cr.yaml
+#       regexp: '^ *cidr:.*'
+#       line: "      cidr: {{ hostvars['master1']['pod_network_cidr'] }}"
+
+
+#   - name: Install custom resource pod network
+#     become: false
+#     ignore_errors: true
+#     command: kubectl create -f /tmp/cr.yaml
+#     register: install_calico_custom_resource
+#     when: copy_calico_custom_resource is succeeded
+
+

@@ -1,0 +1,14 @@
+- hosts: masters
+  gather_facts: false 
+  tasks:
+    - name: Check if kubeadm initiated
+      become: true
+      ansible.builtin.command: kubeadm token create --print-join-command
+      register: kubeadm_status
+      ignore_errors: true
+
+    - name: Kubernetes Cluster Init If Not Initiated Already
+      become: true
+      when: kubeadm_status.stderr != ""
+      # ansible.builtin.command: kubeadm init --apiserver-advertise-address={{ ansible_host }} --pod-network-cidr={{ pod_network_cidr }} --cri-socket /run/containerd/containerd.sock --ignore-preflight-errors Swap
+      ansible.builtin.command: kubeadm init --apiserver-advertise-address={{ kubeadm_master_local_ip }} --apiserver-cert-extra-sans={{ ansible_host }} --pod-network-cidr={{ pod_network_cidr }} --cri-socket /run/containerd/containerd.sock --ignore-preflight-errors Swap

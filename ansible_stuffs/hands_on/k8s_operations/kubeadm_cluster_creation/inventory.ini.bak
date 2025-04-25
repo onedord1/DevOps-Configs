@@ -1,0 +1,12 @@
+[all:vars]
+auth_username=master
+auth_password=master101
+organization_name=aes
+
+[masters]
+master1 ansible_host=172.17.19.101 ansible_port=22 kubeadm_master_local_ip=172.17.19.101 pod_network_cidr=192.168.0.0/16 metallb_ippool=['172.17.19.105/32', '172.17.19.106-172.17.19.110']
+master2 ansible_host=172.17.18.182 ansible_port=22 kubeadm_master_local_ip=172.17.18.182 pod_network_cidr=192.168.241.0/16 nfs_server=172.17.17.7 nfs_path=/var/k8-nfs/data metallb_ippool=['172.17.18.185/32', '172.17.18.186-172.17.18.189']
+
+[workers]
+worker01 ansible_host=172.17.19.102 ansible_port=22
+worker02 ansible_host=172.17.19.103 ansible_port=22

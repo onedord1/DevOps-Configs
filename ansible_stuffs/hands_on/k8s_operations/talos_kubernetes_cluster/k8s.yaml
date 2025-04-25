@@ -1,0 +1,35 @@
+# Install TalosCTL on Ansible node
+- name: Install TalosCTL
+  hosts: ansible
+  gather_facts: true # enables us to gather lots of useful variables: https://docs.ansible.com/ansible/latest/collections/ansible/builtin/setup_module.html
+  become: true
+  roles:
+    - install_talosctl
+
+# Configure Cluster Configuration
+- name: Configure Cluster
+  hosts: ansible
+  gather_facts: true
+  roles:
+    - configure_cluster
+
+# Apply Cluster Configuration
+- name: Configure Cluster
+  hosts: ansible
+  gather_facts: true
+  roles:
+    - apply_config
+
+# Configure TalosCTL
+- name: Configure TalosCTL
+  hosts: ansible
+  gather_facts: true
+  roles:
+    - configure_talosctl
+
+# Add Workers
+- name: Add Workers
+  hosts: ansible
+  gather_facts: true
+  roles:
+    - join_workers

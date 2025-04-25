@@ -1,0 +1,38 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false 
+  tasks:
+  - name: install nfs-common
+    ansible.builtin.apt:
+      name: nfs-common
+      state: latest
+      # update_cache: true
+- hosts: masters
+  become: true
+  gather_facts: false 
+  tasks:
+  - name: helm install
+    community.general.snap:
+      name: helm
+      classic: true
+  - name: helm longhorn repo add
+    become: false
+    command: helm repo add longhorn https://charts.longhorn.io
+
+  - name: Update helm repo
+    become: false
+    command: helm repo update
+    
+  - name: Copy values.yaml to the target node
+    copy:
+      src: ./values.yaml
+      dest: ./values.yaml
+ 
+
+  - name: helm longhorn install
+    become: false
+    command: helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.7.2 --values values.yaml
+    # command: helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --version 1.7.2 --values https://github.com/Abir-K/DevOps-Tutorials/blob/master/Longhorn/values.yaml
+    # -- might be use later --
+    ignore_errors: true

@@ -1,0 +1,35 @@
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Update ansible.cfg
+      ini_file:
+        path: ansible.cfg
+        section: defaults
+        option: remote_user
+        value: "{{ organization_name }}-admin"
+
+- hosts: all
+  become: true
+  tasks:
+
+  - name: create user ansible_user 
+    tags: always
+    user:
+      name: "{{ lookup('ini', 'remote_user section=defaults file=ansible.cfg') }}"
+      group: root
+      shell: /bin/bash
+
+  - name: add ssh key
+    tags: always
+    authorized_key:
+      user: "{{ lookup('ini', 'remote_user section=defaults file=ansible.cfg') }}"
+      key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"  
+  - name: Add ansible user permissions to sudoers file
+    tags: always
+    lineinfile:
+      path: "/etc/sudoers.d/{{ lookup('ini', 'remote_user section=defaults file=ansible.cfg') }}"
+      line: "{{ lookup('ini', 'remote_user section=defaults file=ansible.cfg') }} ALL=(ALL) NOPASSWD: ALL"
+      create: yes
+      mode: 0440
+      owner: root
+      group: root

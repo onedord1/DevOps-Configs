@@ -1,0 +1,11 @@
+---
+- hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: set watcher to higher threshold
+      shell: |
+        echo "fs.inotify.max_user_watches=2099999999" | sudo tee -a /etc/sysctl.conf
+        echo "fs.inotify.max_user_instances=2099999999" | sudo tee -a /etc/sysctl.conf
+        echo "fs.inotify.max_queued_events=2099999999" | sudo tee -a /etc/sysctl.conf
+        sysctl -p

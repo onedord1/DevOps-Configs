@@ -1,0 +1,20 @@
+---
+- hosts: all
+  become: true
+  gather_facts: false 
+  tasks:
+  #containerd installation problem
+  - name: Fix broken package configurations
+    command: dpkg --configure -a
+
+  - name: install containerd
+    ansible.builtin.apt:
+      name: containerd
+      state: latest
+      update_cache: true
+    retries: 10
+    delay: 15
+    register: result
+    until: result is success
+
+

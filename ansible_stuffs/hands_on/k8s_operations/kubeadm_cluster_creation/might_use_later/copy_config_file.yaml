@@ -1,0 +1,10 @@
+
+---
+- name: Copy file from remote to local
+  hosts: masters
+  tasks:
+    - name: Fetch file from remote to local
+      fetch:
+        src: ~/.kube/config
+        dest: /home/akif/Desktop/local_kubeadm_ansible/kubeadm_init_1master_remoteserver_local_portforwarded-0.2_automate_installation/kube.config
+        flat: yes

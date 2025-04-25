@@ -1,0 +1,28 @@
+---
+- name: Disable swap
+  hosts: all
+  gather_facts: false 
+  become: yes
+  pre_tasks:
+    - name: Check if swap is enabled
+      command: swapon --show
+      register: swap_status
+      ignore_errors: yes
+
+    - name: Disable swap
+      when: swap_status.stdout != ""
+      command: swapoff -a
+
+    - name: Remove swap entry from /etc/fstab
+      become: yes
+      lineinfile:
+        dest: /etc/fstab
+        state: absent
+        regexp: '^.*swap.*$'
+      register: remove_swap_entry
+      notify: Reboot if Swap Removed
+      
+  handlers:
+    - name: Reboot if Swap Removed
+      ansible.builtin.reboot:
+      when: remove_swap_entry.changed

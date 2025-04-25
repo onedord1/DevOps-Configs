@@ -1,0 +1,35 @@
+---
+- hosts: all
+  become: yes
+  gather_facts: false 
+  tasks:
+    - name: Create /etc/containerd directory
+      file:
+        path: /etc/containerd
+        state: directory
+        mode: '0755'
+
+    - name: Generate containerd default config
+      command: containerd config default
+      register: containerd_config
+      changed_when: false
+
+    - name: Write containerd config to file
+      copy:
+        content: "{{ containerd_config.stdout }}"
+        dest: /etc/containerd/config.toml
+
+    - name: Update SystemdCgroup setting
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup\s*=\s*false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Restart Containerd Service
+      ansible.builtin.service:
+        name: containerd.service
+        state: restarted
+    # - name: Check status of containerd service
+    #   command: systemctl status containerd
+    #   register: status
+    #   changed_when: false

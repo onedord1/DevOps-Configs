@@ -1,0 +1,36 @@
+---
+- hosts: masters
+  become: true
+  gather_facts: true
+  tasks:
+    - name: set ARP == true
+      shell: |
+        kubectl get configmap kube-proxy -n kube-system -o yaml | \
+        sed -e "s/strictARP: false/strictARP: true/" | \
+        kubectl apply -f - -n kube-system    
+    - name: apply metallb create
+      command: kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+    
+    - name: copy metallb config to the master node
+      ansible.builtin.template:
+        src: metallb.yaml.j2
+        dest: /tmp/metallb.yaml
+   
+
+    - name: update the ip pool
+      become: true
+      ansible.builtin.lineinfile:
+        path: /tmp/metallb.yaml
+        regexp: '^ *- 172\.*'
+        line: "  - {{ hostvars['master1']['metallb_ippool'] }}"
+        backrefs: yes
+
+    - name: Wait for all pods in metallb-system namespace to be ready
+      shell: kubectl get deployment controller -n metallb-system -o jsonpath='{.status.conditions[0].status}'
+      register: result
+      until: result.stdout == "True"
+      retries: 20
+      delay: 10
+
+    - name: Apply the metallb configuration if all pods are ready
+      ansible.builtin.shell: kubectl apply -f /tmp/metallb.yaml
