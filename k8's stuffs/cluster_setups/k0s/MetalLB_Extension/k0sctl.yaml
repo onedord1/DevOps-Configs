@@ -1,0 +1,60 @@
+# Example k0sctl Cluster configuration enabling MetalLB and its IPAddressPool/L2Advertisement
+apiVersion: k0sctl.k0sproject.io/v1beta1
+kind: Cluster
+metadata:
+  name: k0s-cluster 
+  user: admin
+spec:
+  hosts:
+    # Controller node definition
+    - role: controller
+      ssh:
+        address: 192.168.1.42  # Controller node IP
+        user: master
+        keyPath: ~/.ssh/id_ed25519
+      # Copy MetalLB IPPool/L2Advertisement manifest to the k0s manifest directory on the controller
+      files:
+        - name: metallb-config
+          src: ./metallb-config.yaml      # Local file with MetalLB resources
+          dstDir: /var/lib/k0s/manifests/ # k0s manifest-deployer directory on controller
+          perm: 0600
+    - role: worker
+      ssh:
+        address: 192.168.1.47  # Worker node IP
+        user: master
+        keyPath: ~/.ssh/id_ed25519
+    - role: worker
+      ssh:
+        address: 192.168.1.48
+        user: master
+        keyPath: ~/.ssh/id_ed25519
+    - role: worker
+      ssh:
+        address: 192.168.1.49
+        user: master
+        keyPath: ~/.ssh/id_ed25519
+  k0s:
+    version: v1.32.3+k0s.0  # Use the latest stable k0s version
+    config:
+      apiVersion: k0s.k0sproject.io/v1beta1
+      kind: ClusterConfig
+      metadata:
+        name: k0s
+      spec:
+        network:
+          kubeProxy:
+            mode: ipvs
+            ipvs:
+              strictARP: true  # Enable strictARP (needed for MetalLB with kube-proxy in IPVS mode)
+        extensions:
+          helm:
+            # Add the MetalLB Helm chart repository
+            repositories:
+              - name: metallb
+                url: https://metallb.github.io/metallb
+            charts:
+              - name: metallb
+                chartname: metallb/metallb
+                namespace: metallb-system
+                version: "0.14.9"  # Example MetalLB chart version
+                # No additional values needed here; IP pool is managed via the CRDs above
