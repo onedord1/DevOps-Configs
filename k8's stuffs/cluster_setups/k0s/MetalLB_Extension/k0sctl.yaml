@@ -13,26 +13,49 @@ spec:
         user: master
         keyPath: ~/.ssh/id_ed25519
       # Copy MetalLB IPPool/L2Advertisement manifest to the k0s manifest directory on the controller
+      hooks:
+        apply:
+          before:
+            - apt-get update
+            - apt-get install -y nfs-common
       files:
         - name: metallb-config
           src: ./metallb-config.yaml      # Local file with MetalLB resources
           dstDir: /var/lib/k0s/manifests/ # k0s manifest-deployer directory on controller
           perm: 0600
+
     - role: worker
       ssh:
         address: 192.168.1.47  # Worker node IP
         user: master
         keyPath: ~/.ssh/id_ed25519
+      hooks:
+        apply:
+          before:
+            - apt-get update
+            - apt-get install -y nfs-common
+
     - role: worker
       ssh:
         address: 192.168.1.48
         user: master
         keyPath: ~/.ssh/id_ed25519
+      hooks:
+        apply:
+          before:
+            - apt-get update
+            - apt-get install -y nfs-common
+
     - role: worker
       ssh:
         address: 192.168.1.49
         user: master
         keyPath: ~/.ssh/id_ed25519
+      hooks:
+        apply:
+          before:
+            - apt-get update
+            - apt-get install -y nfs-common
   k0s:
     version: v1.32.3+k0s.0  # Use the latest stable k0s version
     config:
