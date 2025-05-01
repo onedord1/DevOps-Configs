@@ -9,13 +9,14 @@ spec:
     # Controller node definition
     - role: controller
       ssh:
-        address: 192.168.1.42  # Controller node IP
+        address: 192.168.1.42
+        port: 9000  # Controller node IP
         user: master
         keyPath: ~/.ssh/id_ed25519
       # Copy MetalLB IPPool/L2Advertisement manifest to the k0s manifest directory on the controller
       hooks:
         apply:
-          before:
+          after:
             - apt-get update
             - apt-get install -y nfs-common
       files:
@@ -27,37 +28,40 @@ spec:
     - role: worker
       ssh:
         address: 192.168.1.47  # Worker node IP
+        port: 9001
         user: master
         keyPath: ~/.ssh/id_ed25519
       hooks:
         apply:
-          before:
+          after:
             - apt-get update
             - apt-get install -y nfs-common
 
     - role: worker
       ssh:
         address: 192.168.1.48
+        port: 9002
         user: master
         keyPath: ~/.ssh/id_ed25519
       hooks:
         apply:
-          before:
+          after:
             - apt-get update
             - apt-get install -y nfs-common
 
     - role: worker
       ssh:
         address: 192.168.1.49
+        port: 9003
         user: master
         keyPath: ~/.ssh/id_ed25519
       hooks:
-        apply:
+        after:
           before:
             - apt-get update
             - apt-get install -y nfs-common
   k0s:
-    version: v1.32.3+k0s.0  # Use the latest stable k0s version
+    version: v1.32.4+k0s.0  # Use the latest stable k0s version
     config:
       apiVersion: k0s.k0sproject.io/v1beta1
       kind: ClusterConfig
