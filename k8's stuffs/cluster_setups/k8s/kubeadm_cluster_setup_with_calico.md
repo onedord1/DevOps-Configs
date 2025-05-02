@@ -1,4 +1,3 @@
-```markdown
 # Kubernetes Cluster Installation on Ubuntu 22.04
 
 This guide will walk you through setting up a Kubernetes Cluster on your Ubuntu machine. The steps include setting up static IP addresses, disabling swap, installing Kubernetes components, initializing the cluster, configuring the network, and deploying applications.
@@ -32,8 +31,6 @@ First, check the DHCP IP and interface using:
 
 ```bash
 ip a
-
-```
 
 Then, edit the netplan file to set a static IP address:
 
