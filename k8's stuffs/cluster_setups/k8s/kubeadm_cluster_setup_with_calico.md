@@ -23,7 +23,6 @@ Ensure that your Ubuntu machine meets the following requirements:
 7. Printing **Join token** and adding worker nodes to the cluster.
 8. **Deploying Applications**.
 
----
 
 ## 1. Setting up Static IPV4 on All Nodes (Master & Worker Node)
 
@@ -31,7 +30,7 @@ First, check the DHCP IP and interface using:
 
 ```bash
 ip a
-
+```
 Then, edit the netplan file to set a static IP address:
 
 ```bash
