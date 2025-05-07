@@ -113,6 +113,8 @@ velero schedule get
 
 ## Nofication Configuration
 
+This notifier is a simple script that will send a notification to a Webhook when a backup is only failed.
+
 First, using that dockerfile build a docker image using the following command:
 
 ```bash
