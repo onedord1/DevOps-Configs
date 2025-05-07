@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: velero-failure-notifier
+  namespace: velero
+spec:
+  schedule: "*/2 * * * *"  # Every 2 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: velero  # Ensure it has access to get/list Velero backups
+          restartPolicy: OnFailure
+          containers:
+            - name: notifier
+              image: docker.io/devopsaes/velero-notifier:latest  # Replace with your image
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  LAST_BACKUP_JSON=$(velero backup get -o json | jq -r '.items | sort_by(.metadata.creationTimestamp) | last')
+                  PHASE=$(echo "$LAST_BACKUP_JSON" | jq -r '.status.phase')
+                  NAME=$(echo "$LAST_BACKUP_JSON" | jq -r '.metadata.name')
+
+                  if [ "$PHASE" != "Completed" ]; then
+                    curl -X POST -H "Content-Type: application/json" \
+                      -d "{\"text\":\"❌ Velero backup \`$NAME\` failed. Phase: $PHASE\"}" \
+                      "https://chat.googleapis.com/v1/spaces/AAAA9obFQb4/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=rteNZk-woz3skEEN1qju1qRl2JO4iixAE7e4M4jnrMQ"
+                  fi

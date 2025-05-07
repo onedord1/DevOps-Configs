@@ -1,0 +1,21 @@
+FROM alpine:latest
+
+# Install dependencies
+RUN apk update && apk add --no-cache \
+  bash \
+  curl \
+  jq \
+  wget \
+  ca-certificates \
+  tar
+
+# Install kubectl
+RUN KUBECTL_VERSION=$(wget -qO- https://dl.k8s.io/release/stable.txt) && \
+    wget https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
+    chmod +x kubectl && mv kubectl /usr/local/bin/
+
+# Install Velero
+RUN wget https://github.com/vmware-tanzu/velero/releases/download/v1.16.0/velero-v1.16.0-linux-amd64.tar.gz && \
+    tar -xzf velero-v1.16.0-linux-amd64.tar.gz && \
+    mv velero-v*/velero /usr/local/bin/ && \
+    rm -rf velero-*
