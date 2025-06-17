@@ -1,0 +1,174 @@
+------> Collabora Start
+  collabora:
+    image: collabora/code
+    container_name: collabora
+    hostname: collabora
+    restart: unless-stopped
+    environment:
+      - domain=nxsrv
+      - username=admin
+      - password=${COLLABRA_PASSWORD}
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+    ports:
+      - "9980:9980"
+    networks:
+      - nxnetwork_yt
+
+vim .env
+COLLABORA_PASSWORD=securepasswordforcollabora
+
+docker-compose up -d
+
+vim /etc/nginx/sites-available/collabora_yourdomain_tld
+
+server {
+	listen 80;
+        listen [::]:80;
+
+        server_name collabora.thesysadminhub.com;
+ 
+        location / {
+            proxy_pass http://localhost:9980;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 3600s;
+            proxy_connect_timeout 3600s;
+            proxy_redirect off;
+        }
+    location ^~ /cool/ {
+            proxy_pass http://localhost:9980;
+            proxy_set_header Host $http_host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 3600s;
+            proxy_connect_timeout 3600s;
+            proxy_redirect off;
+         }
+}
+
+
+cd ../sites-enabled
+ln -s ../sites-available/collabora_yourdomain_tld collabora_yourdomain_tld
+
+nginx -t
+systemctl reload nginx
+
+certbot --nginx -d collabora_yourdomain_tld
+
+------> Collabora End
+
+------> REDIS Start
+
+volumes:
+  redis_data:
+
+  redis:
+    image: redis:alpine
+    container_name: nextcloud_redis
+    hostname: nextcloud_redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+
+export TURN_SECRET=$(openssl rand -hex 16)
+echo "TURN_SECRET=$TURN_SECRET" >> .env
+
+export SIGNALING_SECRET=$(openssl rand -hex 16)
+echo "SIGNALING_SECRET=$SIGNALING_SECRET" >> .env
+
+export INTERNAL_SECRET=$(openssl rand -hex 16)
+echo "INTERNAL_SECRET=$INTERNAL_SECRET" >> .env
+
+docker-compose up -d
+
+cd /var/lib/docker/volume/[CONTAINERNAME]/_data/config
+vim config.php
+
+'filelocking.enabled' => true,
+'memcache.local' => '\\OC\\Memcache\\Redis',
+'memcache.locking' => '\\OC\\Memcache\\Redis',
+'redis' => [
+    'host' => 'redis',
+    'port' => 6379,
+    'password' => 'REDIS_PASSWORD', // Same as in docker-compose.yml
+    'timeout' => 1.5,
+],
+
+docker-compose down && docker-compose up -d
+
+docker exec -it nextcloud_redis redis-cli -a mysecurepassword monitor
+
+
+------> REDIS End
+
+------> High-Performance Backend Start
+
+https://help.nextcloud.com/t/high-performance-backend-for-talk-on-nextcloud-with-docker/215828
+
+  nc-talk:
+    image: nextcloud/aio-talk:latest
+    container_name: talk_hpb
+    hostname: hpb_yt
+    restart: unless-stopped
+    init: true
+    ports:
+      - 3478:3478/tcp #TURN TCP
+      - 3478:3478/udp #TURN UDP
+      - 8181:8081/tcp #Signaling
+    environment:
+      - NC_DOMAIN=cloud.thesysadminhub.com
+      - TALK_HOST=signaling.thesysadminhub.com
+      - TURN_SECRET=${TURN_SECRET}
+      - SIGNALING_SECRET=${SIGNALING_SECRET}
+      - TZ=Europe/Berlin
+      - TALK_PORT=3478
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+    networks:
+      - nxnetwork_yt
+
+openssl rand -hex 32
+vim .env
+NEXTCLOUD_ADMIN_PASSWORD=Securepassword
+MYSQL_ROOT_PASSWORD=Securepassword
+MYSQL_PASSWORD=Securepassword
+COLLABRA_PASSWORD=Securepassword
+TURN_SECRET=Secret from command openssl rand -hex 32
+SIGNALING_SECRET=Secret from command openssl rand -hex 32
+INTERNAL_SECRET=Secret from command openssl rand -hex 32
+
+cd /etc/nginx/sites-available
+vim signaling_yourdomain_tld
+
+    server {
+        listen 80;
+        listen [::]:80;
+
+        server_name signaling.yourdomain.tld;
+
+        location / {
+            proxy_pass http://localhost:8181;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+cd ../sites-enabed
+ln -s ../sites-available/signaling_yourdomain_tld signaling_yourdomain_tld
+
+nginx -t
+systemctl reload nginx
+certbot --nginx -d signaling_yourdomain_tld
+
+------> High-Performance Backend End

@@ -1,70 +1,105 @@
-services:
+volumes:
   nextcloud:
-    image: nextcloud
+  database:
+  redis_data:
+
+services:
+  db:
+    image: mariadb:10.6
+    container_name: nextcloud_db
+    hostname: nxdb 
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - database:/var/lib/mysql
+    networks:
+      - nxnetwork
+
+  nextcloud:
+    image: nextcloud:latest
     container_name: nextcloud
+    hostname: nxsrv
     restart: unless-stopped
-    networks:
-      - cloud
-    depends_on:
-      - nextclouddb
-      - redis
     ports:
-      - "8080:80"
-    volumes:
-      - /html:/var/www/html
-      - /custom_apps:/var/www/html/custom_apps
-      - /config:/var/www/html/config
-      - /data:/var/www/html/data
+      - "8020:80"
+    depends_on:
+      - db
+    links:
+      - db
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=TZ='Asia/Dhaka'
+      - MYSQL_HOST=db
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
-      - MYSQL_PASSWORD=dbpassword
-      - MYSQL_HOST=nextclouddb
-      - REDIS_HOST=redis
-  nextclouddb:
-    image: mariadb
-    container_name: nextcloud-db
-    restart: unless-stopped
-    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - PHP_OPCACHE_MEMORY_CONSUMPTION=256
+      - PHP_OPCACHE_MAX_ACCELERATED_FILES=100000
+      - PHP_OPCACHE_VALIDATE_TIMESTAMPS=1
+      - PHP_OPCACHE_REVALIDATE_FREQ=60
+      - PHP_UPLOAD_LIMIT=100G
+      - NEXTCLOUD_UPLOAD_LIMIT=100G
+      - APACHE_BODY_LIMIT=0
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_POST_MAX_SIZE=100G
+      - PHP_MAX_EXECUTION_TIME=3600
+    volumes:
+      - nextcloud:/var/www/html
+      - /var/log/nextcloud:/var/log
     networks:
-      - cloud
-    volumes:
-      - /nextclouddb:/var/lib/mysql
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ='Asia/Dhaka'
-      - MYSQL_ROOT_PASSWORD=superAdmin
-      - MYSQL_PASSWORD=dbpassword
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
+      - nxnetwork
+
   collabora:
     image: collabora/code
     container_name: collabora
+    hostname: collabora
     restart: unless-stopped
-    networks:
-      - cloud
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ='Asia/Dhaka'
-      - password=password
-      - username=nextcloud
-      - domain=example.com
-      - extra_params=--o:ssl.enable=true
+      - domain=nxsrv
+      - username=admin
+      - password=${COLLABRA_PASSWORD}
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
     ports:
       - "9980:9980"
+    networks:
+      - nxnetwork
+
   redis:
     image: redis:alpine
-    container_name: redis
+    container_name: nextcloud_redis
+    hostname: nextcloud_redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
-      - /redis:/data
+      - redis_data:/data
     networks:
-      - cloud
+      - nxnetwork
+
+
+  nc-talk:
+    image: nextcloud/aio-talk:latest
+    container_name: talk_hpb
+    hostname: hpb
+    restart: unless-stopped
+    init: true
+    ports:
+      - 3478:3478/tcp #TURN TCP
+      - 3478:3478/udp #TURN UDP
+      - 8181:8081/tcp #Signaling
+    environment:
+      - NC_DOMAIN=cloud.yourdomain.tld
+      - TALK_HOST=signaling.yourdomain.tld
+      - TURN_SECRET=${TURN_SECRET}
+      - SIGNALING_SECRET=${SIGNALING_SECRET}
+      - TZ=Asia/Dhaka
+      - TALK_PORT=3478
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+    networks:
+      - nxnetwork
+
 networks:
-  cloud:
-    name: cloud
+  nxnetwork:
     driver: bridge
