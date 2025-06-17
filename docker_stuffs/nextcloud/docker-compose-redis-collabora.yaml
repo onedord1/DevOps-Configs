@@ -1,0 +1,70 @@
+services:
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: unless-stopped
+    networks:
+      - cloud
+    depends_on:
+      - nextclouddb
+      - redis
+    ports:
+      - "8080:80"
+    volumes:
+      - /html:/var/www/html
+      - /custom_apps:/var/www/html/custom_apps
+      - /config:/var/www/html/config
+      - /data:/var/www/html/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=TZ='Asia/Dhaka'
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=dbpassword
+      - MYSQL_HOST=nextclouddb
+      - REDIS_HOST=redis
+  nextclouddb:
+    image: mariadb
+    container_name: nextcloud-db
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    networks:
+      - cloud
+    volumes:
+      - /nextclouddb:/var/lib/mysql
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ='Asia/Dhaka'
+      - MYSQL_ROOT_PASSWORD=superAdmin
+      - MYSQL_PASSWORD=dbpassword
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+  collabora:
+    image: collabora/code
+    container_name: collabora
+    restart: unless-stopped
+    networks:
+      - cloud
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ='Asia/Dhaka'
+      - password=password
+      - username=nextcloud
+      - domain=example.com
+      - extra_params=--o:ssl.enable=true
+    ports:
+      - "9980:9980"
+  redis:
+    image: redis:alpine
+    container_name: redis
+    volumes:
+      - /redis:/data
+    networks:
+      - cloud
+networks:
+  cloud:
+    name: cloud
+    driver: bridge
