@@ -1,0 +1,64 @@
+version: "3.4"
+
+networks: 
+    example-com--postgres: ~
+    example-com--redis: ~
+
+services:
+    # PostgreSQL
+    postgres: 
+        container_name: example-com--postgres
+        environment: 
+            - POSTGRES_PASSWORD=somepassword
+            - POSTGRES_USER=someuser
+        image: postgres:latest
+        restart: always
+        volumes: 
+            - "./postgres/init:/docker-entrypoint-initdb.d/"
+            - "./postgres/data:/var/lib/postgresql/data"
+            - "/etc/localtime:/etc/localtime:ro"
+        networks: 
+            - example-com--postgres
+
+    # NextCloud
+    nextcloud: 
+        container_name: example-com--nextcloud
+        depends_on: 
+          - postgres
+        image: nextcloud:latest
+        restart: always
+        ports:
+            - 1000:80
+        volumes: 
+            - "./nextcloud/data:/var/www/html/data"
+            - "./nextcloud/config:/var/www/html/config"
+            - "./nextcloud/themes:/var/www/html/themes"
+            - "./nextcloud/custom_apps:/var/www/html/custom_apps"
+            - "/etc/localtime:/etc/localtime:ro"
+        networks: 
+            - example-com--postgres
+            - example-com--redis
+
+    # Redis
+    redis:
+        container_name: example-com--redis
+        image: redis:latest
+        restart: always
+        networks:
+            - example-com--redis
+
+    # Collabora
+    collabora:
+        container_name: example-com--collabora
+        image: collabora/code:latest
+        cap_add: 
+            - MKNOD
+        environment: 
+            - domain=cloud\.example\.com
+            - username=someuser
+            - password=somepassword
+        ports:
+            - 1001:9980
+        restart: always
+        volumes:
+            - "/etc/localtime:/etc/localtime:ro"
