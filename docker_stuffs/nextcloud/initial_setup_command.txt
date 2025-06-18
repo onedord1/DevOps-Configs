@@ -1,7 +1,7 @@
 docker exec -it nextcloud_db /bin/bash
 mysql -u root -p
-MariaDB [(none)]> CREATE USER 'nextcloud' IDENTIFIED BY 'securepasswordfordbuser';
-MariaDB [(none)]> GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud' IDENTIFIED BY 'securepasswordfordbuser';
+MariaDB [(none)]> CREATE USER 'nextcloud' IDENTIFIED BY 'nextcloud';
+MariaDB [(none)]> GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud' IDENTIFIED BY 'nextcloud';
 MariaDB [(none)]> quit
 
 docker exec -it -u33 nextcloud php occ config:app:set dashboard layout --value=welcome,recommendations,spreed,mail,calendar,announcementcenter
