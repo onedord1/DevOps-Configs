@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# SET.sh (Java + psql version installer & switcher)
+
+help() {
+  cat <<EOF
+Usage:
+  ./SET.sh psql=16   # installs & switches PostgreSQL CLI tools
+  ./SET.sh jdk=17    # installs & switches Java 17 (all related commands)
+EOF
+}
+
+get_bin() {
+  case "$1:$2" in
+    psql:*) echo "/usr/lib/postgresql/$2/bin/psql" ;;
+    jdk:*)  echo "/usr/lib/jvm/java-$2-openjdk-amd64/bin/java" ;;
+    *)      echo "" ;;
+  esac
+}
+
+install_tool() {
+  tool=$1; ver=$2
+  pkg=$([[ "$tool" == "psql" ]] && echo "postgresql-client-$ver" || echo "openjdk-$ver-jdk")
+  echo "📦 Installing $pkg..."
+  sudo apt update -y
+  sudo apt install -y "$pkg" || return 1
+}
+
+register_tool() {
+  tool=$1; ver=$2; prio=$((ver * 10))
+  if [[ "$tool" == "psql" ]]; then
+    sudo update-alternatives --install /usr/bin/psql psql \
+      "/usr/lib/postgresql/$ver/bin/psql" "$prio" \
+      --slave /usr/bin/pg_dump pg_dump "/usr/lib/postgresql/$ver/bin/pg_dump" \
+      --slave /usr/bin/pg_restore pg_restore "/usr/lib/postgresql/$ver/bin/pg_restore"
+  else  # Java
+    base="/usr/lib/jvm/java-$ver-openjdk-amd64"
+    echo "⚙️ Registering Java $ver:"
+    for cmd in java javac jar jshell jconsole jmap jdb; do
+      [[ -x "$base/bin/$cmd" ]] && \
+        sudo update-alternatives --install /usr/bin/$cmd $cmd "$base/bin/$cmd" "$prio"
+    done
+  fi
+}
+
+if [[ $# -ne 1 || "$1" != *=* ]]; then help; exit 1; fi
+IFS='=' read TOOL VER <<< "$1"
+BIN=$(get_bin "$TOOL" "$VER")
+if [[ -z "$BIN" ]]; then
+  echo "❌ Unsupported tool: '$TOOL'"; help; exit 1
+fi
+
+if [[ ! -x "$BIN" ]]; then
+  install_tool "$TOOL" "$VER" || { echo "❌ Installation failed"; exit 1; }
+  register_tool "$TOOL" "$VER"
+fi
+
+# The key change: always set the 'java' group when switching Java
+if [[ "$TOOL" == "jdk" ]]; then
+  sudo update-alternatives --set java "$BIN" && \
+    echo "✅ Java switched to version $VER ($(java --version))"
+else
+  sudo update-alternatives --set psql "$BIN" && \
+    echo "✅ psql switched to version $VER ($(psql --version))"
+fi
