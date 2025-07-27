@@ -1,0 +1,27 @@
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "employee-ingress"
+  namespace: employee-info
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: security-headers@kubernetescrd
+    # traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+            pathType: Prefix
+          - path: /api
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+            pathType: Prefix

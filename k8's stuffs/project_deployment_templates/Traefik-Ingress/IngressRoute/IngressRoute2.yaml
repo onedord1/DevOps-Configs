@@ -1,0 +1,34 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"
+  name: trace-quickops-ingress
+  namespace: trace-quickops
+spec:
+
+  entryPoints:
+    - web
+    # - websecure
+  routes:
+    - match: Host(`172.17.17.162`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: quickopsfe-service
+          port: 80
+
+    - match: Host(`172.17.17.162`) && PathPrefix(`/tracebe`)
+      kind: Rule
+      services:
+        - name: quickopsbe-service
+          port: 8083
+      middlewares:
+        - name: strip-tracebe
+          namespace: trace-quickops
+    - match: Host(`172.17.17.162`) && PathPrefix(`/tracego`)
+      kind: Rule
+      services:
+        - name: quickopsgo-service
+          port: 8084
+  # tls:
+  #   secretName: dev-quickops

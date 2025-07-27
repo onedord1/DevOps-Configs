@@ -1,0 +1,31 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: employee-ingress
+  namespace: employee-info
+spec:
+  entryPoints:
+  #   - websecure
+    - web
+  routes:
+    - match: Host(`172.19.255.200`) && PathPrefix(`/`)
+    # - match: Host(`employee-info.com`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: frontend #your_frontend_service_name
+          port: 80
+      # middlewares:
+      #   - name: employee-headers
+    - match: Host(`172.19.255.200`) && PathPrefix(`/api`)
+    # - match: Host(`employee-info.com`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: backend #your_backend_service_name
+          port: 5000
+      middlewares:
+        - name: allow-methods
+  # tls:
+  #   secretName: employee-local-cert
+
+
+# kubectl create secret tls empoyee-local-cert --cert=/root/certs/wildcard.empoyee.local.crt --key=/root/certs/wildcard.employee.local.key -n employee-info
