@@ -1,0 +1,56 @@
+---
+- name: Get Longhorn nodes information
+  ansible.builtin.uri:
+    url: "http://{{ longhorn.node | default('longhorn-backend') }}:{{ longhorn.port | default(9500) }}/v1/nodes"
+    method: GET
+    return_content: yes
+  register: longhorn_nodes
+
+- name: Check each node's storage and extract key messages
+  ansible.builtin.shell: |
+    node_name="{{ item.name }}"
+    total_max=0
+    total_scheduled=0
+    
+    # Process each disk
+    {% for disk_key, disk_value in item.disks.items() %}
+    total_max=$((total_max + {{ disk_value.storageMaximum | default(0) }}))
+    total_scheduled=$((total_scheduled + {{ disk_value.storageScheduled | default(0) }}))
+    {% endfor %}
+    
+    # Calculate percentage
+    if [ $total_max -gt 0 ]; then
+      available_pct=$(echo "scale=2; ($total_max - $total_scheduled) * 100 / $total_max" | bc)
+    else
+      available_pct=0
+    fi
+    
+    # Always show available percentage
+    echo "Node $node_name: $available_pct% available"
+    
+    # Check if sufficient
+    if (( $(echo "$available_pct < {{ min_storage_percentage | default(25) }}" | bc -l) )); then
+      echo "INSUFFICIENT: $node_name has $available_pct% available, need {{ min_storage_percentage | default(25) }}%"
+    fi
+    
+    # Get disk schedulable status
+    {% for disk_key, disk_value in item.disks.items() %}
+    {% if disk_value.conditions.Schedulable.status == 'True' %}
+    echo "{{ disk_value.conditions.Schedulable.message }}"
+    {% endif %}
+    {% endfor %}
+  register: storage_check
+  loop: "{{ longhorn_nodes.json.data }}"
+  changed_when: false
+
+- name: Display storage check results
+  ansible.builtin.debug:
+    msg: "{{ item.stdout_lines }}"
+  loop: "{{ storage_check.results }}"
+  when: item.stdout_lines | length > 0
+
+- name: Fail if any node has insufficient storage
+  ansible.builtin.fail:
+    msg: "Insufficient storage space detected. Check the output above for details."
+  when: item.stdout is search("INSUFFICIENT")
+  loop: "{{ storage_check.results }}"

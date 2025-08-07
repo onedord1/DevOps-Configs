@@ -1,0 +1,118 @@
+---
+- hosts: local
+  gather_facts: false
+
+  vars:
+    dump_dir: "../dumps"
+
+  tasks:
+
+    - name: Group flat variables into structured dicts
+      set_fact:
+        source:
+          host: "{{ source_host }}"
+          port: "{{ source_port | int }}"
+          user: "{{ source_user }}"
+          password: "{{ source_password }}"
+          name: "{{ source_name }}"
+          namespace: "{{ source_namespace }}"
+          backend_deployment: "{{ source_backend_deployment }}"
+          kubeconfig: "{{ source_kubeconfig }}"
+        target:
+          host: "{{ target_host }}"
+          port: "{{ target_port | int }}"
+          user: "{{ target_user }}"
+          password: "{{ target_password }}"
+          name: "{{ target_name }}"
+          namespace: "{{ target_namespace }}"
+          backend_deployment: "{{ target_backend_deployment }}"
+          replica_count: "{{ target_replica_count | int }}"
+          kubeconfig: "{{ target_kubeconfig }}"
+        longhorn:
+          node: "{{ longhorn_node }}"
+          port: "{{ longhorn_port | int }}"
+        app:
+          health_url: "{{ app_health_url }}"
+      no_log: true
+
+    - name: Debug loaded variables
+      debug:
+        msg:
+          - "db_type = {{ db_type }}"
+          - "source host = {{ source.host }}, db name = {{ source.name }}"
+          - "target host = {{ target.host }}, db name = {{ target.name }}"
+
+    - name: Build dynamic dump filenames for source and target
+      set_fact:
+        dump_file_source: >-
+          {{ dump_dir ~ '/' ~ source.name ~ '_from_' ~
+            (source.host | regex_replace('\\.', '_')) ~
+            ('.dump' if db_type == 'postgres' else '.sql') }}
+        dump_file_target: >-
+          {{ dump_dir ~ '/' ~ target.name ~ '_from_' ~
+            (target.host | regex_replace('\\.', '_')) ~
+            ('.dump' if db_type == 'postgres' else '.sql') }}
+      when: db_type in ['postgres', 'mysql']
+
+
+    - name: Show dump filenames
+      debug:
+        msg:
+          source_dump: "{{ dump_file_source }}"
+          target_dump: "{{ dump_file_target }}"
+
+
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-down
+      vars:
+        kubeconfig: "{{ source.kubeconfig }}"
+        namespace: "{{ source.namespace }}"
+        deployment: "{{ source.backend_deployment }}"
+
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/create-source-db-dump.yaml"
+
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-up
+      vars:
+        kubeconfig: "{{ source.kubeconfig }}"
+        namespace: "{{ source.namespace }}"
+        deployment: "{{ source.backend_deployment }}"
+        replicas: "{{ source.replica_count }}"
+
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-down
+      vars:
+        kubeconfig: "{{ target.kubeconfig }}"
+        namespace: "{{ target.namespace }}"
+        deployment: "{{ target.backend_deployment }}"
+
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/create-target-db-dump.yaml"
+
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/clean-target-db.yaml"
+
+    - include_role:
+        name: ../roles/longhorn-storage-check
+        tasks_from: storage-availability
+
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/restore-db.yaml"
+
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-up
+      vars:
+        kubeconfig: "{{ target.kubeconfig }}"
+        namespace: "{{ target.namespace }}"
+        deployment: "{{ target.backend_deployment }}"
+        replicas: "{{ target.replica_count }}"
+
+    - name: Application health check
+      uri:
+        url: "{{ app.health_url }}"
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 5
+      delay: 10

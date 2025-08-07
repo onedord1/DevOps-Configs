@@ -1,0 +1,17 @@
+- name: Drop MySQL target DB
+  community.mysql.mysql_db:
+    login_host: "{{ target.host }}"
+    login_port: "{{ target.port }}"
+    login_user: "{{ target.user }}"
+    login_password: "{{ target.password }}"
+    name: "{{ target.name }}"
+    state: absent
+
+- name: Create MySQL target DB
+  community.mysql.mysql_db:
+    login_host: "{{ target.host }}"
+    login_port: "{{ target.port }}"
+    login_user: "{{ target.user }}"
+    login_password: "{{ target.password }}"
+    name: "{{ target.name }}"
+    state: present
