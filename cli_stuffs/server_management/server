@@ -1,0 +1,518 @@
+#!/bin/bash
+
+GPG_RECIPIENT="$USER"
+SSH_CONFIG_FILE="$HOME/.ssh/config"
+CRED_FILE="$HOME/.ssh/server_credentials"
+
+server_init() {
+    # make sure fzf installed
+    if ! command -v fzf &>/dev/null; then
+        sudo apt update -y && sudo apt install fzf -y
+    fi
+    # make sure gpg installed
+    if ! command -v gpg &>/dev/null; then
+        sudo apt update -y && sudo apt install gnupg -y
+    fi
+    # make sure gpg is initialized
+    if ! gpg --list-keys | grep -q '^pub'; then
+        echo "🔑 Please Follow The Prompts To Initialize your Encryption Keys"
+        echo;echo; 
+        echo "SUGGESTIONS"
+        echo "you can choose the default options for most prompts."
+        echo "key type  :  choose 'RSA and RSA'."
+        echo "key size  :  choose 2048 or 4096 bits"
+        echo "expiration:  choose '0' for no expiration."
+        echo "passphrase:  choose a strong passphrase to encrypt your passwords."
+        echo;echo;
+        
+        gpg --full-generate-key
+    fi
+    # make sure ~/.ssh exists
+    if [[ ! -d "$HOME/.ssh" ]]; then
+        mkdir -p "$HOME/.ssh"
+    fi
+    # make sure ~/.ssh/config exists
+    if [[ ! -f "$SSH_CONFIG_FILE" ]]; then
+        touch "$SSH_CONFIG_FILE"
+    fi
+    # make sure ~/.ssh/server_credentials exists
+    if [[ ! -f "$CRED_FILE" ]]; then
+        touch "$CRED_FILE"
+    fi
+
+    echo "✅ Server Manager Initialized"
+    echo;
+    echo "You can now add, remove, edit, and connect to SSH servers."
+    echo "Use 'server --help' to see available commands."
+
+}
+
+# Function to encrypt pswrd
+encrypt_password() {
+    local plain="$1"
+    echo -n "$plain" | gpg --yes -r "$GPG_RECIPIENT" -e --armor | base64 | tr -d '\n'
+}
+
+# Function to decrypt pswrd
+decrypt_password() {
+    local encrypted="$1"
+    echo "$encrypted" | base64 --decode | gpg --quiet --decrypt
+}
+
+function add_server() {
+    # no empty input should be allowed
+    while true; do
+        read -p "Server name (alias): " name
+        if [[ -n "$name" ]]; then
+            break
+        else
+            echo "❌ Server name cannot be empty. Please try again."
+        fi
+    done
+
+    while true; do
+        read -p "HostName (IP or domain): " hostname
+        if [[ -n "$hostname" ]]; then
+            break
+        else
+            echo "❌ HostName cannot be empty. Please try again."
+        fi
+    done
+
+    while true; do
+        read -p "User: " user
+        if [[ -n "$user" ]]; then
+            break
+        else
+            echo "❌ User cannot be empty. Please try again."
+        fi
+    done
+
+    while true; do
+        read -p "Port (optional, default 22): " port
+        port=${port:-22}
+        if [[ "$port" =~ ^[0-9]+$ ]]; then
+            break
+        else
+            echo "❌ Port must be a number. Try again."
+        fi
+    done
+
+    read -p "Enter group (optional): " group
+    group=${group:-default}
+
+
+    if grep -q "^Host $name\$" "$SSH_CONFIG_FILE" 2>/dev/null; then
+        echo "❌ Host '$name' already exists in ~/.ssh/config"
+        return 1
+    fi
+
+    read -rsp "Enter password: " password
+    echo
+
+    # Only proceed if password is provided
+    if [[ -n "$password" ]]; then
+        encrypted_password=$(encrypt_password "$password")
+        echo "$group-$name=$encrypted_password" >> "$CRED_FILE"
+        echo "✅ Added: $name"
+    else
+        echo "⚠️ No password entered. Skipping Saving Password."
+    fi
+
+    mkdir -p ~/.ssh
+
+    grouplname="$group/$name"
+    {
+        echo ""
+        echo "Host $grouplname"
+        echo "    HostName $hostname"
+        echo "    User $user"
+        echo "    Port $port"
+    } >> "$SSH_CONFIG_FILE"
+
+}
+
+function remove_server() {
+    local hosts groups group selected_host full_host
+
+    # Get all hosts in format group/name
+    hosts=$(grep '^Host ' "$SSH_CONFIG_FILE" | awk '{print $2}')
+    if [[ -z "$hosts" ]]; then
+        echo "❌ No hosts found"
+        return 1
+    fi
+
+    # Extract unique groups (portion before '/')
+    groups=$(echo "$hosts" | awk -F/ '{print $1}' | sort -u)
+    if [[ -z "$groups" ]]; then
+        echo "❌ No groups found in hosts"
+        return 1
+    fi
+
+    # Select group
+    group=$(echo "$groups" | fzf --prompt="Select group to remove host from: ")
+    if [[ -z "$group" ]]; then
+        echo "❌ No group selected."
+        return 1
+    fi
+
+    # Select host in the chosen group
+    selected_host=$(echo "$hosts" | grep "^$group/" | awk -F/ '{print $2}' | fzf --prompt="Select host in group '$group' to remove: ")
+    if [[ -z "$selected_host" ]]; then
+        echo "❌ No host selected."
+        return 1
+    fi
+
+    full_host="$group/$selected_host"
+
+    # Remove host block from SSH config
+    awk -v host="$full_host" '
+        BEGIN {skip=0}
+        $1 == "Host" && $2 == host {skip=1; next}
+        $1 == "Host" {skip=0}
+        !skip {print}
+    ' "$SSH_CONFIG_FILE" > "${SSH_CONFIG_FILE}.tmp" && mv "${SSH_CONFIG_FILE}.tmp" "$SSH_CONFIG_FILE"
+
+    echo "✅ $selected_host  Deleted"
+
+    # Remove password entry from credentials file if exists
+    if grep -q "^$group-$selected_host=" "$CRED_FILE"; then
+        sed -i "/^$group-$selected_host=/d" "$CRED_FILE"
+    fi  
+}
+
+function list_servers() {
+    declare -A host_map
+    declare -A status_map
+    declare -A pw_status_map
+    declare -A group_servers
+
+    current_host=""
+
+    while IFS= read -r line; do
+        line_trimmed="${line#"${line%%[![:space:]]*}"}"
+        line_trimmed="${line_trimmed%"${line_trimmed##*[![:space:]]}"}"
+        [[ -z "$line_trimmed" || "$line_trimmed" =~ ^# ]] && continue
+
+        if [[ "$line_trimmed" =~ ^Host[[:space:]]+(.+) ]]; then
+            current_host="${BASH_REMATCH[1]}"
+        elif [[ -n "$current_host" ]] && [[ "$line_trimmed" =~ ^HostName[[:space:]]+(.+) ]]; then
+            host_map["$current_host"]="${BASH_REMATCH[1]}"
+        fi
+    done < "$SSH_CONFIG_FILE"
+
+    # Temporary dir to hold ping results
+    tmpdir=$(mktemp -d)
+
+    ping_host() {
+        local alias=$1
+        local hostname=$2
+        if ping -c1 -W1 "$hostname" &>/dev/null; then
+            echo "🟢 Online" > "$tmpdir/$alias.status"
+
+        else
+            echo "🔴 Offline" > "$tmpdir/$alias.status"
+        fi
+    }
+    
+    for alias in "${!host_map[@]}"; do
+        servername=$(echo "$alias" | cut -d'/' -f2)
+
+        ping_host "$servername" "${host_map[$alias]}" &
+    done
+
+    wait
+
+    max_alias_length=0
+    for alias in "${!host_map[@]}"; do
+        servername=$(echo "$alias" | cut -d'/' -f2)
+
+        [ "${#servername}" -gt "$max_alias_length" ] && max_alias_length="${#servername}"
+    done
+    max_alias_length=$((max_alias_length + 2))
+
+    # Populate status and group maps
+    for alias in "${!host_map[@]}"; do
+        servername2=$(echo "$alias" | cut -d'/' -f2)
+        servernamedash=$(echo "$alias" | sed 's/\//-/g')
+        status=$(cat "$tmpdir/$servername2.status")
+        if grep -q "^$servernamedash=" "$CRED_FILE"; then
+            pw_status="🔑"
+        else
+            pw_status="❌"
+        fi
+
+        status_map["$alias"]="$status"
+        pw_status_map["$alias"]="$pw_status"
+
+        group=$(echo "$alias" | cut -d'/' -f1)
+        group_servers["$group"]+="$alias"$'\n'
+    done
+
+    count=0
+    for group in $(printf "%s\n" "${!group_servers[@]}" | sort); do
+
+        echo -e "\n🗂️  Group: \033[1;36m$group\033[0m"
+        while IFS= read -r alias; do
+            [[ -z "$alias" ]] && continue
+            count=$((count + 1))
+            servername=$(echo "$alias" | cut -d'/' -f2)
+            printf "🎯 \033[1;33m%2d\033[0m. \033[1;32m%-${max_alias_length}s\033[0m | %s | %s\n" \
+                "$count" "$servername" "${status_map[$alias]}" "${pw_status_map[$alias]}"
+        done <<< "${group_servers[$group]}"
+    done
+
+    echo -e "\n🧠 Total Hosts: \033[1;35m$count\033[0m\n"
+    rm -rf "$tmpdir"
+}
+
+function ssh_server() {
+    local hosts groups group selected_host
+
+    # Get all hosts in format group/name
+    hosts=$(grep '^Host ' "$SSH_CONFIG_FILE" | awk '{print $2}')
+    if [[ -z "$hosts" ]]; then
+        echo "❌ No hosts found"
+        return 1
+    fi
+
+    # Extract unique groups (portion before '/')
+    groups=$(echo "$hosts" | awk -F/ '{print $1}' | sort -u)
+    if [[ -z "$groups" ]]; then
+        echo "❌ No groups found in hosts"
+        return 1
+    fi
+
+
+    # Select group from the list of unnique groups
+    group=$(echo "$groups" | fzf --prompt="Select group: ")
+    if [[ -z "$group" ]]; then
+        echo "❌ No group selected."
+        return 1
+    fi
+
+    # Show hosts only from selected group (portion after '/')
+    selected_host=$(echo "$hosts" | grep "^$group/" | awk -F/ '{print $2}' | fzf --prompt="Select host in group '$group': ")
+    if [[ -z "$selected_host" ]]; then
+        echo "❌ No host selected."
+        return 1
+    fi
+
+    # Compose full host (group/name)
+    local full_host="$group/$selected_host"
+    echo "🔑 Connecting to '$selected_host'..."
+    ssh "$full_host"
+}
+
+
+function edit_server() {
+    local hosts groups group name selected_group selected_name
+    local old_hostname old_port old_user new_hostname new_port new_user
+    local new_group new_name full_old_host full_new_host password encrypted_password
+
+    # Get all hosts in format group/name
+    hosts=$(grep '^Host ' "$SSH_CONFIG_FILE" | awk '{print $2}')
+    if [[ -z "$hosts" ]]; then
+        echo "❌ No hosts found"
+        return 1
+    fi
+
+    # Select group first
+    groups=$(echo "$hosts" | awk -F/ '{print $1}' | sort -u)
+    selected_group=$(echo "$groups" | fzf --prompt="Select group of host to edit: ")
+    if [[ -z "$selected_group" ]]; then
+        echo "❌ No group selected."
+        return 1
+    fi
+
+    # Select host name in that group
+    selected_name=$(echo "$hosts" | grep "^$selected_group/" | awk -F/ '{print $2}' | fzf --prompt="Select host in group '$selected_group' to edit: ")
+    if [[ -z "$selected_name" ]]; then
+        echo "❌ No host selected."
+        return 1
+    fi
+
+    full_old_host="$selected_group/$selected_name"
+
+    # Get current values from ssh config
+    old_hostname=$(awk -v host="$full_old_host" '
+        $1 == "Host" && $2 == host { in_block = 1; next }
+        in_block && $1 == "Host" { exit }
+        in_block && $1 == "HostName" { print $2 }
+    ' "$SSH_CONFIG_FILE")
+
+    old_port=$(awk -v host="$full_old_host" '
+        $1 == "Host" && $2 == host { in_block = 1; next }
+        in_block && $1 == "Host" { exit }
+        in_block && $1 == "Port" { print $2 }
+    ' "$SSH_CONFIG_FILE")
+
+    old_user=$(awk -v host="$full_old_host" '
+        $1 == "Host" && $2 == host { in_block = 1; next }
+        in_block && $1 == "Host" { exit }
+        in_block && $1 == "User" { print $2 }
+    ' "$SSH_CONFIG_FILE")
+
+    # Prompt for edits (default to old values)
+    read -p "Group [$selected_group]: " new_group
+    new_group=${new_group:-$selected_group}
+
+    read -p "Name [$selected_name]: " new_name
+    new_name=${new_name:-$selected_name}
+
+    read -p "HostName [$old_hostname]: " new_hostname
+    new_hostname=${new_hostname:-$old_hostname}
+
+    read -p "User [$old_user]: " new_user
+    new_user=${new_user:-$old_user}
+
+    while true; do
+        read -p "Port [$old_port]: " new_port
+        new_port=${new_port:-$old_port}
+        if [[ "$new_port" =~ ^[0-9]+$ ]]; then
+            break
+        else
+            echo "❌ Port must be a number. Try again."
+        fi
+    done
+
+    read -rsp "Enter password (leave blank to keep current): " password
+    echo
+
+    full_new_host="$new_group/$new_name"
+
+
+
+
+    # Update credentials if password given or if host key changed
+    if [[ -n "$password" || "$new_group-$new_name" != "$selected_group-$selected_name" ]]; then
+        # Remove old credential entry
+
+        if grep -q "^$selected_group-$selected_name=" "$CRED_FILE"; then
+            sed -i "s/^$selected_group-$selected_name=/$new_group-$new_name=/" "$CRED_FILE"
+
+        fi
+
+        if [[ -n "$password" ]]; then
+            sed -i "/^$new_group-$new_name=/d" "$CRED_FILE"
+
+            encrypted_password=$(encrypt_password "$password")
+            echo "$new_group-$new_name=$encrypted_password" >> "$CRED_FILE"
+        else
+            echo "❗ Password not changed. No new entry added."
+        fi
+    fi
+
+    # Remove old block from ssh config
+    awk -v host="$full_old_host" '
+        BEGIN { in_block=0 }
+        $1 == "Host" && $2 == host { in_block=1; next }
+        $1 == "Host" && in_block == 1 { in_block=0 }
+        in_block == 0 { print }
+    ' "$SSH_CONFIG_FILE" > "${SSH_CONFIG_FILE}.tmp" && mv "${SSH_CONFIG_FILE}.tmp" "$SSH_CONFIG_FILE"
+
+    # Append updated block
+    {
+        echo "Host $full_new_host"
+        echo "    HostName $new_hostname"
+        echo "    User $new_user"
+        echo "    Port $new_port"
+    } >> "$SSH_CONFIG_FILE"
+
+    echo "✅ Host '$full_old_host' updated to '$full_new_host'"
+}
+
+function get_password() {
+    local hosts groups selected_group selected_name selected_host value decrypted_password full_host
+
+    # Get all hosts in format group/name
+    hosts=$(grep '^Host ' "$SSH_CONFIG_FILE" | awk '{print $2}')
+    if [[ -z "$hosts" ]]; then
+        echo "❌ No hosts found"
+        return 1
+    fi
+
+    # Select group first
+    groups=$(echo "$hosts" | awk -F/ '{print $1}' | sort -u)
+    selected_group=$(echo "$groups" | fzf --prompt="Select group to get password from: ")
+    if [[ -z "$selected_group" ]]; then
+        echo "❌ No group selected."
+        return 1
+    fi
+
+    # Select host in that group
+    selected_name=$(echo "$hosts" | grep "^$selected_group/" | awk -F/ '{print $2}' | fzf --prompt="Select host in group '$selected_group': ")
+    if [[ -z "$selected_name" ]]; then
+        echo "❌ No host selected."
+        return 1
+    fi
+
+    full_host="$selected_group-$selected_name"
+
+    # Extract encrypted password value
+    if grep -q "^$full_host=" "$CRED_FILE"; then
+        value=$(grep "^$full_host=" "$CRED_FILE" | cut -d'=' -f2-)
+    else
+        echo "❌ Password is not saved for '$full_host'" >&2
+        return 1
+    fi
+
+    # Decrypt password
+    decrypted_password=$(decrypt_password "$value")
+    if [[ -n "$decrypted_password" ]]; then
+        echo "🔑 Password for '$full_host' is $decrypted_password"
+    else
+        echo "❌ Failed to decrypt password for '$full_host'"
+        return 1
+    fi
+}
+
+function show_help() {
+    echo ""
+    echo "🖥️  SERVERCTX - Simple SSH Server Manager"
+    echo ""
+    echo "Usage:"
+    echo "  server [command]           Description"
+    echo ""
+    echo "  server init, -i            Initialize the server manager (install dependencies)"
+    echo "  server                     Interactively select and connect to an SSH server"
+    echo "  server add                 Add a new SSH server entry"
+    echo "  server rm                  Remove an existing SSH server entry"
+    echo "  server edit                Edit an existing SSH server entry"
+    echo "  server ls                  List all SSH server aliases with ping status"
+    echo "  server ssh                 Connect to a server via SSH"
+    echo "  server pswd                Get the password for a selected server"
+    echo "  server --help, -h          Show this help message"
+    echo ""
+}
+
+case "$1" in
+    init|initialize|in|-i)
+        server_init
+        ;;
+    add|ad)
+        add_server
+        ;;
+    rm|remove|del|delete)
+        remove_server
+        ;;
+    edit|edt)
+        edit_server
+        ;;
+    list|ls)
+        list_servers
+        ;;
+    ssh|"")
+        ssh_server
+        ;;
+    pswd|password)
+        get_password
+        ;;
+    --help|help|-h)
+        show_help
+        ;;
+    *)
+        echo "❌ Unknown command: $1"
+        show_help
+        ;;
+esac
