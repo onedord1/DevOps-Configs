@@ -1,0 +1,10 @@
+# Production environment overrides
+vm:
+  id: "10002"
+  template_id: "1002"
+  name: "ubuntu-cloud-image-prod"
+  memory_mb: "16384"
+  disk_size_gb: "500"
+
+logging:
+  level: "WARN"

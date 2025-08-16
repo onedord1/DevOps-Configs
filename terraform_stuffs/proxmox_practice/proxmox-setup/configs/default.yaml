@@ -1,0 +1,47 @@
+# Default configuration for Proxmox setup
+# This file contains non-sensitive configuration parameters
+
+vm:
+  id: "9999"
+  template_id: "999"
+  name: "ubuntu-cloud-image"
+  memory_mb: "8000"
+  disk_size_gb: "300"
+  image_file: "jammy-server-cloudimg-amd64.img"
+  image_url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+  storage: "local-lvm"
+  bridge: "vmbr0"
+
+user:
+  name: "terraform"
+  realm: "pve"
+  role_name: "terraform-role"
+  token_name: "terraform-token"
+  # privileges are defined as a list for better readability
+  privs:
+    - "Datastore.AllocateSpace"
+    - "Datastore.Audit"
+    - "Pool.Allocate"
+    - "Sys.Audit"
+    - "Sys.Console"
+    - "Sys.Modify"
+    - "VM.Allocate"
+    - "VM.Audit"
+    - "VM.Clone"
+    - "VM.Config.CDROM"
+    - "VM.Config.Cloudinit"
+    - "VM.Config.CPU"
+    - "VM.Config.Disk"
+    - "VM.Config.HWType"
+    - "VM.Config.Memory"
+    - "VM.Config.Network"
+    - "VM.Config.Options"
+    - "VM.Migrate"
+    - "VM.Monitor"
+    - "VM.PowerMgmt"
+    - "SDN.Use"
+
+# Logging configuration
+logging:
+  level: "INFO"  # parameter to use here 'DEBUG, INFO, WARN, ERROR'
+  file: "../logs/proxmox-setup.log"

@@ -1,0 +1,10 @@
+# Development environment overrides
+vm:
+  id: "10000"
+  template_id: "1000"
+  name: "ubuntu-cloud-image-dev"
+  memory_mb: "4096"
+  disk_size_gb: "50"
+
+logging:
+  level: "DEBUG"

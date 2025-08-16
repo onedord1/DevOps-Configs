@@ -1,0 +1,45 @@
+module "master_vms" {
+  source                            = "../../modules/master_nodes"
+  master_vms_count                  = var.master_vms_count
+  master_vmid_series                = var.master_vmid_series
+  master_vms_name                   = var.master_vms_name
+  master_vms_description            = var.master_vms_description
+  proxmox_target_node_name          = var.proxmox_target_node_name
+  master_vms_os_type                = var.master_vms_os_type
+  master_vms_os_template_name       = var.master_vms_os_template_name
+  master_vms_cpu_core               = var.master_vms_cpu_core
+  master_vms_cpu_architecture       = var.master_vms_cpu_architecture
+  master_vms_memory                 = var.master_vms_memory
+  master_vms_scsi_controller_model  = var.master_vms_scsi_controller_model
+  master_vms_storage_name           = var.master_vms_storage_name
+  master_vms_storage_size           = var.master_vms_storage_size
+  master_vms_network_bridge         = var.master_vms_network_bridge
+  master_vms_network_model          = var.master_vms_network_model
+  master_ips                        = var.master_ips
+  master_vms_username               = var.master_vms_username
+  master_vms_password               = var.master_vms_password
+  your_public_key                   = var.your_public_key
+}
+
+module "worker_vms" {
+  source                            = "../../modules/worker_nodes"
+  worker_vms_count                  = var.worker_vms_count
+  worker_vmid_series                = var.worker_vmid_series
+  worker_vms_name                   = var.worker_vms_name
+  worker_vms_description            = var.worker_vms_description
+  proxmox_target_node_name          = var.proxmox_target_node_name
+  worker_vms_os_type                = var.worker_vms_os_type
+  worker_vms_os_template_name       = var.worker_vms_os_template_name
+  worker_vms_cpu_core               = var.worker_vms_cpu_core
+  worker_vms_cpu_architecture       = var.worker_vms_cpu_architecture
+  worker_vms_memory                 = var.worker_vms_memory
+  worker_vms_scsi_controller_model  = var.worker_vms_scsi_controller_model
+  worker_vms_storage_name           = var.worker_vms_storage_name
+  worker_vms_storage_size           = var.worker_vms_storage_size
+  worker_vms_network_bridge         = var.worker_vms_network_bridge
+  worker_vms_network_model          = var.worker_vms_network_model
+  worker_vms_ips                    = var.worker_vms_ips
+  worker_vms_username               = var.worker_vms_username
+  worker_vms_password               = var.worker_vms_password
+  your_public_key                   = var.your_public_key
+}

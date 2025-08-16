@@ -1,0 +1,5 @@
+# Staging environment overrides
+vm:
+  id: "10001"
+  template_id: "1001"
+  name: "ubuntu-cloud-image-staging"
