@@ -2,7 +2,7 @@
   shell: |
     PGPASSWORD='{{ source.password }}' pg_restore \
       -h {{ target.host }} -p {{ target.port }} \
-      -U {{ target.user }} -d {{ target.name }} \
+      -U {{ target.user }} -d {{ target.name }} -v -c \
         "{{ dump_file_source }}"
   ignore_errors: true
 # ---

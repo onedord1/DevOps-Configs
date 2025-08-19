@@ -16,7 +16,10 @@
           password: "{{ source_password }}"
           name: "{{ source_name }}"
           namespace: "{{ source_namespace }}"
+          crds: "{{ source_crds_kind }}"
+          apiversion: "{{ source_crds_apiVersion }}"
           backend_deployment: "{{ source_backend_deployment }}"
+          replica_count: "{{ source_replica_count | int }}"
           kubeconfig: "{{ source_kubeconfig }}"
         target:
           host: "{{ target_host }}"
@@ -26,6 +29,8 @@
           name: "{{ target_name }}"
           namespace: "{{ target_namespace }}"
           backend_deployment: "{{ target_backend_deployment }}"
+          crds: "{{ target_crds_kind }}"
+          apiversion: "{{ target_crds_apiVersion }}"
           replica_count: "{{ target_replica_count | int }}"
           kubeconfig: "{{ target_kubeconfig }}"
         longhorn:
@@ -68,6 +73,8 @@
       vars:
         kubeconfig: "{{ source.kubeconfig }}"
         namespace: "{{ source.namespace }}"
+        crds: "{{ source.crds }}"
+        apiversion: "{{ source.apiversion }}"
         deployment: "{{ source.backend_deployment }}"
 
     - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/create-source-db-dump.yaml"
@@ -78,6 +85,8 @@
       vars:
         kubeconfig: "{{ source.kubeconfig }}"
         namespace: "{{ source.namespace }}"
+        crds: "{{ source.crds }}"
+        apiversion: "{{ source.apiversion }}"
         deployment: "{{ source.backend_deployment }}"
         replicas: "{{ source.replica_count }}"
 
@@ -87,7 +96,10 @@
       vars:
         kubeconfig: "{{ target.kubeconfig }}"
         namespace: "{{ target.namespace }}"
-        deployment: "{{ target.backend_deployment }}"
+        crds: "{{ target.crds }}"
+        apiversion: "{{ target.apiversion }}"
+        deployment: "{{ item }}"
+      loop: "{{ target.backend_deployment }}"
 
     - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/create-target-db-dump.yaml"
 
@@ -105,8 +117,11 @@
       vars:
         kubeconfig: "{{ target.kubeconfig }}"
         namespace: "{{ target.namespace }}"
-        deployment: "{{ target.backend_deployment }}"
+        crds: "{{ target.crds }}"
+        apiversion: "{{ target.apiversion }}"
+        deployment: "{{ item }}"
         replicas: "{{ target.replica_count }}"
+      loop: "{{ target.backend_deployment }}"
 
     - name: Application health check
       uri:

@@ -1,10 +1,10 @@
-- name: Scale down OrgPod backend replicas
+- name: Scale down backend replicas
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig }}"
     namespace: "{{ namespace }}"
     definition:
-      apiVersion: webapp.aes.dev/v1
-      kind: OrgPod
+      apiVersion: "{{ apiversion }}"
+      kind: "{{ crds }}"
       metadata:
         name: "{{ deployment }}"
       spec:
