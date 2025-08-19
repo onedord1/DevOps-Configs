@@ -1,0 +1,8 @@
+- name: Download cloud image
+  ansible.builtin.get_url:
+    url: "{{ template.image_url }}"
+    dest: "/tmp/{{ template.image_name }}"
+  register: download_result
+  until: download_result is success
+  retries: 3
+  delay: 10

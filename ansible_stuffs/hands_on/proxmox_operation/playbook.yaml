@@ -1,0 +1,26 @@
+---
+- name: Create Proxmox VM Templates
+  hosts: proxmox
+  become: true
+  tasks:
+    - name: Include download_image role
+      include_role:
+        name: download_template_image
+      loop: "{{ vm_templates }}"
+      loop_control:
+        loop_var: template
+
+    - name: Include create_vm_template role
+      include_role:
+        name: create_vm_template
+      loop: "{{ vm_templates }}"
+      loop_control:
+        loop_var: template
+
+- name: Setup Proxmox User, Role, and Token
+  hosts: proxmox
+  become: true
+  tasks:
+    - name: Include setup_user_role_token role
+      include_role:
+        name: setup_terraform_user

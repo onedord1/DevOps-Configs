@@ -1,0 +1,55 @@
+---
+- name: Create Proxmox User
+  community.general.proxmox_user:
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_host: "{{ proxmox_api_host }}"
+    user: "{{ proxmox_api_user }}"
+    password: "{{ proxmox_api_password }}"
+    state: present
+
+- name: Create Proxmox Role
+  community.general.proxmox_role:
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_host: "{{ proxmox_api_host }}"
+    role: "{{ proxmox_api_role }}"
+    privileges:
+      - "VM.Allocate"
+      - "VM.Console"
+      - "VM.PowerMgmt"
+      - "VM.Config.CDROM"
+      - "VM.Config.HWType"
+      - "VM.Config.Options"
+      - "VM.Config.CPU"
+      - "VM.Config.Memory"
+      - "VM.Config.Disk"
+      - "VM.Config.Network"
+      - "VM.Config.Cloudinit"
+      - "VM.Monitor"
+      - "VM.Snapshot"
+      - "VM.Backup"
+      - "VM.Migrate"
+      - "VM.Clone"
+      - "VM.MoveDisk"
+      - "VM.SnapshotRollback"
+      - "VM.BackupRestore"
+    state: present
+
+- name: Create Proxmox API Token
+  community.general.proxmox_token:
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_host: "{{ proxmox_api_host }}"
+    token_id: "{{ proxmox_api_token_id }}"
+    role: "{{ proxmox_api_role }}"
+    state: present
+  register: token_creation_result
+
+- name: Save token output to JSON file
+  ansible.builtin.copy:
+    content: "{{ token_creation_result | to_json }}"
+    dest: "/tmp/{{ proxmox_api_token_id }}_token_output.json"

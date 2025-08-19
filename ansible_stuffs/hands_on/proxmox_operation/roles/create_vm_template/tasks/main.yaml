@@ -1,0 +1,43 @@
+---
+- name: Download cloud image
+  ansible.builtin.get_url:
+    url: "{{ template.image_url }}"
+    dest: "/tmp/{{ template.image_name }}"
+  register: download_result
+  until: download_result is success
+  retries: 3
+  delay: 10
+
+- name: Create VM from image
+  community.general.proxmox_kvm:
+    node: "{{ proxmox_node }}"
+    vmid: "{{ template.vmid }}"
+    name: "{{ template.name }}"
+    cores: "{{ template.cores }}"
+    memory: "{{ template.memory }}"
+    net0: "{{ template.net0 }}"
+    disk: "{{ template.disk_size }}"
+    storage: "{{ template.storage }}"
+    image: "/tmp/{{ template.image_name }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_host: "{{ proxmox_api_host }}"
+  register: vm_creation_result
+
+- name: Convert VM to template
+  community.general.proxmox_kvm:
+    node: "{{ proxmox_node }}"
+    vmid: "{{ template.vmid }}"
+    name: "{{ template.name }}"
+    state: template
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_host: "{{ proxmox_api_host }}"
+  register: template_creation_result
+
+- name: Save output to JSON file
+  ansible.builtin.copy:
+    content: "{{ {'vm_creation': vm_creation_result, 'template_creation': template_creation_result} | to_json }}"
+    dest: "/tmp/{{ template.name }}_creation_output.json"

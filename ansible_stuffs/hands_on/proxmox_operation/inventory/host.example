@@ -1,0 +1,36 @@
+all:
+  hosts:
+    proxmox:
+      ansible_host: 192.168.1.100
+      ansible_user: root
+      ansible_ssh_private_key_file: /path/to/your/local/private/key
+  vars:
+    proxmox_api_user: root@pam
+    proxmox_api_token_id: ansible_pve_token
+    proxmox_api_token_secret: your_api_token_secret
+    proxmox_api_host: https://192.168.1.100:8006
+    proxmox_node: pve-node
+    proxmox_api_role: PVEVMAdmin
+    vm_templates:
+      - name: ubuntu-template
+        os: ubuntu
+        image_url: https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-amd64.img
+        image_name: ubuntu-20.04-server-cloudimg-amd64.img
+        vmid: 100
+        disk_size: 10G
+        cores: 2
+        memory: 2048
+        net0: virtio,bridge=vmbr0
+        storage: local-lvm
+        cloudinit: true
+      - name: fedora-template
+        os: fedora
+        image_url: https://download.fedoraproject.org/pub/fedora/linux/releases/34/Cloud/aarch64/images/Fedora-Cloud-Base-34-1.2.aarch64.qcow2
+        image_name: Fedora-Cloud-Base-34-1.2.aarch64.qcow2
+        vmid: 101
+        disk_size: 10G
+        cores: 2
+        memory: 2048
+        net0: virtio,bridge=vmbr0
+        storage: local-lvm
+        cloudinit: true
