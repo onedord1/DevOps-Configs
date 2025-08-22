@@ -1,0 +1,1 @@
+**Use case if you need identical but multiple instances creation at a time**

@@ -1,0 +1,1 @@
+**Use case: for multiple instances with unique configurations.**
