@@ -1,0 +1,29 @@
+---
+- name: Split TABLES into a list
+  set_fact:
+    table_list: "{{ TABLES.split(',') }}"
+
+- name: Debug table_list
+  debug:
+    msg: "table_list = {{ table_list }}"
+
+- name: Create dumps directory
+  file:
+    path: "{{ dump_dir_path }}"
+    state: directory
+    mode: '0755'
+    
+- name: Dump each table from source DB
+  community.postgresql.postgresql_db:
+    state: dump
+    name: "{{ source.name }}"
+    target: "{{ dump_dir_path }}/{{ item }}.dump"
+    login_host: "{{ source.host }}"
+    login_port: "{{ source.port }}"
+    login_user: "{{ source.user }}"
+    login_password: "{{ source.password }}"
+    dump_extra_args: "-t {{ item }} -F c"
+  loop: "{{ table_list }}"
+  when: 
+    - table_list | length > 0
+    - item | length > 0  # Only process non-empty table names

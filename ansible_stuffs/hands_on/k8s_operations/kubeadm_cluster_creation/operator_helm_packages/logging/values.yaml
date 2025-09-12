@@ -1,0 +1,7 @@
+namespace: core-ns
+elasticSearch:
+  pvSize: 2048
+  replicas: 1
+  username: aes 
+  password: aes1234
+  logRetention: 1

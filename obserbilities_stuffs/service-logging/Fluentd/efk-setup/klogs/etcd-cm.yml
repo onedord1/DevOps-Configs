@@ -1,0 +1,11 @@
+
+<source>
+  @type tail
+  @id in_tail_etcd
+  path /var/log/containers/etcd.log
+  pos_file "#{File.join('/var/log/', ENV.fetch('FLUENT_POS_EXTRA_DIR', ''), 'fluentd-etcd.log.pos')}"
+  tag etcd
+  <parse>
+    @type none
+  </parse>
+</source>

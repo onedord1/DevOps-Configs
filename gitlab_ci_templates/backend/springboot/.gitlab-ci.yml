@@ -1,0 +1,32 @@
+workflow:
+  rules:
+    - when: always
+
+include:
+  # For branch/tag pushes to stage/qa/prod (non-merge-request)
+  - local: ".gitlab/ci-${CI_COMMIT_REF_NAME}.yaml"
+    rules:
+      - if: '$CI_COMMIT_REF_NAME == "stage" || $CI_COMMIT_REF_NAME == "qa" || $CI_COMMIT_REF_NAME == "prod"'
+        exists:
+          - ".gitlab/ci-${CI_COMMIT_REF_NAME}.yaml"
+
+  #For merge requests targeting stage/qa/prod
+  - local: ".gitlab/ci-${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}.yaml"
+    rules:
+      - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "stage" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "qa" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "prod"'
+        exists:
+          - ".gitlab/ci-${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}.yaml"
+
+  # For branch/tag pushes to other refs (non-merge-request)
+  - local: ".gitlab/ci-default.yaml"
+    rules:
+      - if: '$CI_COMMIT_REF_NAME != "stage" && $CI_COMMIT_REF_NAME != "qa" && $CI_COMMIT_REF_NAME != "prod" && $CI_PIPELINE_SOURCE != "merge_request_event"'
+        exists:
+          - ".gitlab/ci-default.yaml"
+
+  #For merge requests targeting other branches
+  - local: ".gitlab/ci-default.yaml"
+    rules:
+      - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "stage" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "qa" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "prod" && $CI_PIPELINE_SOURCE == "merge_request_event"'
+        exists:
+          - ".gitlab/ci-default.yaml"

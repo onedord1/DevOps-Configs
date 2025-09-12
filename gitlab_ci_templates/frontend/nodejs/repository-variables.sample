@@ -1,0 +1,26 @@
+Commands used:
+sudo apt-get install jq
+curl -k -H "PRIVATE-TOKEN: g<your_private_token>" \
+     "https://172.17.19.247/api/v4/projects/<project_id>/variables" | \
+     jq -r '.[] | "\(.key): \(.value)"'
+
+sonar_token: sqa_2d542b4da36a86019d0c007dc2ce1f116db86854
+GOOGLE_CHAT_WEBHOOK_URL: https://chat.googleapis.com/v1/spaces/AAQAuKvWB60/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=CcctuVfFoLt6Gcfa4paGrIFS_KbqmEkFV5HaeUGXEA4
+harborpass: a2YNzgVCm1qd9hgcMXRy7s3eyziJ5WfH
+harboruser: robot$quickops-automation
+NEXUS_AUTH_TOKEN: ZGV2ZWxvcGVyOjlaQzZQN2o1Zmp5MnQ=
+dev_argo_url: 172.17.17.3:32106
+argo_user: developer
+argo_pass: %984&K4naB%y8J
+qa_argo_url: 172.17.17.155:31408
+DOCKER_AUTH_CONFIG: {
+        "auths": {
+                "registry.cloudaes.com": {
+                        "auth": "cm9ib3QkcXVpY2tvcHMtYXV0b21hdGlvbjphMllOemdWQ20xcWQ5aGdjTVhSeTdzM2V5emlKNVdmSA=="
+                }
+        }
+}
+gituser: gitlabcicd
+gitpass: stHeRImPligRAMinEa
+uat_argo_url: 172.17.19.11:30388
+main_argo_url: 172.17.19.11:30388

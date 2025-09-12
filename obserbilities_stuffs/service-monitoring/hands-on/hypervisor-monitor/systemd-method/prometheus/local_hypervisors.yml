@@ -1,0 +1,12 @@
+- labels:
+    target_name: dev_proxmox 
+  targets:
+      - 172.17.17.17:9221
+- labels:
+    target_name: qa_proxmox
+  targets:
+      - 172.17.17.2:9221
+- labels:
+    target_name: prod_proxmox
+  targets:
+      - 172.17.19.10:9221

@@ -1,0 +1,11 @@
+groups:
+- name: proxmox-node-alerts
+  rules:
+  - alert: ProxmoxNodeDown
+    expr: min_over_time(pve_up{id=~"node/.*", job="hypervisors"}[2m]) == 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Proxmox node {{ $labels.target_name }} ({{ $labels.instance }}) is DOWN"
+      description: "The node '{{ $labels.target_name }}' at {{ $labels.instance }} hasn't sent pve_up=1 for 2 minutes — check if it's offline or exporter is unreachable."

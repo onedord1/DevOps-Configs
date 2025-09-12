@@ -1,0 +1,33 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['room', 'alertname']
+  group_wait: 30s
+  group_interval: 10m
+  repeat_interval: 1h
+  receiver: 'googlechat'
+  routes:
+    - match:
+        alertname: 'DockerContainerDown'
+      receiver: 'containeralert'
+      group_wait: 30s
+      group_interval: 10m
+      repeat_interval: 1h
+
+receivers:
+  - name: 'googlechat'
+    webhook_configs:
+      - url: 'http://localhost:6000/dispatch'
+        send_resolved: true
+  - name: 'containeralert'
+    webhook_configs:
+      - url: 'http://localhost:6000/dispatch'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance', 'target_name']

@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgresdb-exporter-sm
+  namespace: cortezado-cement-gtsx-ns
+  labels:
+    release: aescontroller-monitoring-operator
+spec:
+  selector:
+    matchLabels:
+      app: postgresdb-exporter
+  namespaceSelector:
+    matchNames:
+      - cortezado-cement-gtsx-ns
+  endpoints:
+    - port: postgresdb-exporter-port
+      path: /metrics
+      interval: 30s

@@ -1,0 +1,12 @@
+apiVersion: webapp.aes.dev/v1
+kind: DbPod
+metadata:
+  name: efk-elasticsearch
+  namespace: {{ .Values.namespace }}
+spec:
+  version: "8.14.1"
+  replicas: {{ .Values.elasticSearch.replicas }}
+  pvSize: {{ .Values.elasticSearch.pvSize }}
+  port: 9200
+  dbType: "elasticsearch"
+

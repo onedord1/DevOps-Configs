@@ -1,0 +1,15 @@
+[app]
+address = "0.0.0.0:6000"
+server_timeout = "60s"
+enable_request_logs = true
+log = "info"
+
+[providers.googlechat]
+type = "google_chat"
+endpoint = "<your_googlechat_webhook>"
+max_idle_conns = 50
+timeout = "30s"
+template = "/etc/calert/message.tmpl"
+thread_ttl = "12h"
+threaded_replies = true
+dry_run = false

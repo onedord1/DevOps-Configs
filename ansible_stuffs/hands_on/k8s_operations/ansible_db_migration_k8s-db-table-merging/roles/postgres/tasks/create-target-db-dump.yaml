@@ -1,0 +1,7 @@
+- name: Create dump target PostgreSQL DB
+  shell: |
+    PGPASSWORD='{{ target.password }}' pg_dump -h {{ target.host }} -p {{ target.port }} -U {{ target.user }} -Fc {{ target.name }} -f "{{ dump_file_target }}"
+    
+- name: Debug dump path for target
+  debug:
+    msg: "Dump file created at {{ dump_file_target }}"

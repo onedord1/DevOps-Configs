@@ -1,0 +1,42 @@
+https://docs.gitlab.com/administration/server_hooks/?tab=GitLab+15.10+and+earlier
+
+#!/bin/bash
+set -e
+
+while read oldrev newrev refname; do
+  for commit in $(git rev-list $oldrev..$newrev); do
+    message=$(git log --format=%s -n 1 $commit)
+    if ! [[ "$message" =~ ^GIT-[0-9]+[-\ ].* ]]; then
+      echo "❌ Commit $commit rejected: message must start with 'GIT-<number>' followed by space or dash"
+      echo "Your message: \"$message\""
+      exit 1
+    fi
+  done
+done
+
+exit 0
+------------------------------------------------------------
+✅ It matches commit messages like:
+
+    GIT-123 fix login bug ✅
+
+    GIT-456-add new feature ✅
+
+    GIT-789 - something important ✅
+
+    GIT-1 quick fix ✅
+
+    GIT-9-bug ✅
+
+❌ It does NOT match messages like:
+
+    git-123 fix bug ❌ (lowercase "git")
+
+    GIT123 fix bug ❌ (missing dash)
+
+    GIT-abc fix bug ❌ (letters instead of numbers)
+
+    BUG-123 fix ❌ (wrong prefix)
+
+    Fix: GIT-123 ❌ ("GIT-123" not at the beginning)
+    

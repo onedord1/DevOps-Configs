@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: dev-quickops  
+  name: quickopsfe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsfe
+  template:
+    metadata:
+      labels:
+        app: quickopsfe
+    spec:
+      imagePullSecrets: 
+        - name: harbor-pull-secret
+      containers:
+      - name: quickopsfe
+        image: registry.cloudaes.com/quickops-fe/testfe:26Aug-16-27-ee5193c
+        ports:
+          - containerPort: 80
+        resources:
+          requests:
+            memory: "100Mi"
+            cpu: "25m"
+          limits:
+            memory: "200Mi"
+            cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: dev-quickops  
+
+  name: quickopsfe-service
+spec:
+  selector:
+    app: quickopsfe
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP

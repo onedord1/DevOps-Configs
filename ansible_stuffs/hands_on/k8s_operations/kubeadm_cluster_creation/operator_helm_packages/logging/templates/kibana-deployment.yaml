@@ -1,0 +1,32 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: efk-kibana
+  namespace: {{.Values.namespace}}
+spec:
+  version: 8.14.1
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+  count: {{ .Values.elasticSearch.replicas }}
+  elasticsearchRef:
+    name: efk-elasticsearch
+  config:
+    server.basePath: "/application-log"
+    server.rewriteBasePath: true
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        readinessProbe:
+          httpGet:
+            path: /application-log
+            port: 5601
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+

@@ -36,3 +36,28 @@
     owner: "{{ target.user }}"
     encoding: 'UTF8'
     state: present
+
+
+#if not work upper then use raw
+
+# - name: Drop target database if it exists using SQL
+#   community.postgresql.postgresql_query:
+#     login_host: "{{ target.host }}"
+#     port: "{{ target.port }}"
+#     login_user: "{{ target.user }}"
+#     login_password: "{{ target.password }}"
+#     login_db: postgres
+#     query: "DROP DATABASE IF EXISTS {{ target.name }};"
+#   become: true
+#   become_user: postgres
+
+# - name: Create target PostgreSQL database via SQL
+#   community.postgresql.postgresql_query:
+#     login_host: "{{ target.host }}"
+#     port: "{{ target.port }}"
+#     login_user: "{{ target.user }}"
+#     login_password: "{{ target.password }}"
+#     login_db: postgres
+#     query: "CREATE DATABASE {{ target.name }};"
+#   become: true
+#   become_user: postgres

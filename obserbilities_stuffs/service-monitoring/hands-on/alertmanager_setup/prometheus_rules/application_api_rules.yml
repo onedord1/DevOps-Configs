@@ -1,0 +1,14 @@
+groups:
+- name: blackbox-endpoint-alerts
+  rules:
+  - alert: BlackboxHttpError
+    expr: probe_http_status_code{job="blackbox"} <= 199
+          or probe_http_status_code{job="blackbox"} >= 400
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Application Endpoint HTTP error ({{ $labels.probe_http_status_code }}) – {{ $labels.target_name }}"
+      description: |
+        The probe for '{{ $labels.target_name }}' at '{{ $labels.instance }}' 
+        returned HTTP status {{ $labels.probe_http_status_code }} for more than 2 minutes.

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: dev-quickops 
+  name: quickopsmail
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsmail
+  template:
+    metadata:
+      labels:
+        app: quickopsmail
+    spec:
+      imagePullSecrets: 
+        - name: harbor-pull-secret
+      containers:
+      - name: quickopsmail
+        image: registry.cloudaes.com/quickops-mail/aes-comm-sys-be:18May-15-06-6bcbe5a
+        ports:
+          - containerPort: 9090
+        env:
+          - name: SPRING_DATASOURCE_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: MYSQL_USER
+          - name: SPRING_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mysql-secret
+                key: MYSQL_PASSWORD
+          - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+            value: "update"
+          - name: DB_HOST
+            value: "mysql"
+          - name: DB_PORT
+            value: "3306"
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: mysql-configmap
+                key: MAIL_DATABASE
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: dev-quickops 
+
+  name: quickopsmail-service
+spec:
+  selector:
+    app: quickopsmail
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9090
+  type: ClusterIP

@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev-quickops
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  # annotations:
+  #   notifications.argoproj.io/subscribe.on-sync-succeeded.googlechat: spaceName
+  #   notifications.argoproj.io/subscribe.on-deleted.googlechat: spaceName
+  #   notifications.argoproj.io/subscribe.on-sync-status-unknown.googlechat: spaceName
+  #   notifications.argoproj.io/subscribe.on-health-degraded.googlechat: spaceName
+  #   notifications.argoproj.io/subscribe.on-sync-failed.googlechat: spaceName
+    
+spec:
+  project: default
+  source:
+    repoURL: https://172.17.19.247/devops/quickops-manifests.git
+    path: ./k8s
+    # targetRevision: HEAD
+    targetRevision: dev
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev-quickops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m0s

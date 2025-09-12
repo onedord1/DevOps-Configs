@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresdb-exporter
+  namespace: cortezado-cement-gtsx-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresdb-exporter
+  template:
+    metadata:
+      labels:
+        app: postgresdb-exporter
+    spec:
+      containers:
+        - name: postgresdb-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter
+          ports:
+            - containerPort: 9187
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "postgres://rootuser:superAdmin@livedb-db-cluster:5432/corteza?sslmode=disable"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresdb-exporter
+  namespace: cortezado-cement-gtsx-ns
+  labels:
+    app: postgresdb-exporter
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresdb-exporter-port
+      port: 9187
+      targetPort: 9187
+  selector:
+    app: postgresdb-exporter
+

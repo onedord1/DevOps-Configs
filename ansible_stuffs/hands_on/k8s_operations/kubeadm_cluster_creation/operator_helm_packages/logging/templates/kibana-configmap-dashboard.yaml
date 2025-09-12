@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-data
+  namespace: {{.Values.namespace}}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+data:
+  curl-script.sh: |
+    #!/bin/sh
+
+    # Wait for Kibana to be available & healthy
+    function wait_for_kibana {
+        echo "Testing connection to Kibana"
+        local status_code
+        while true; do
+            status_code=$(curl -s -o /dev/null -w "%{http_code}" http://${KIBANA_URL}:${KIBANA_PORT}/application-log/api/status)
+            echo "Kibana returned status $status_code"
+            if [ "$status_code" -eq 200 ]; then
+                echo "Kibana is available!"
+                break
+            else
+                echo "Waiting..."
+                sleep 5
+            fi
+        done
+    }
+
+    # Import dashboards
+    function import_dashboards {
+      echo "Importing dashboards..."
+      sleep 30
+      curl -X DELETE -u ${KIBANA_USERNAME}:${KIBANA_PASSWORD} http://${KIBANA_URL}:${KIBANA_PORT}/application-log/api/saved_objects/config/8.14.1 -H 'kbn-xsrf: true'
+      curl -X DELETE -u ${KIBANA_USERNAME}:${KIBANA_PASSWORD} http://${KIBANA_URL}:${KIBANA_PORT}/application-log/api/saved_objects/config-global/8.14.1 -H 'kbn-xsrf: true'
+
+      OUTPUT=$(curl --user ${KIBANA_USERNAME}:${KIBANA_PASSWORD} -X POST http://${KIBANA_URL}:${KIBANA_PORT}/application-log/api/saved_objects/_import -H 'kbn-xsrf: true' --form file=@/kibana/file.ndjson)
+      SUCCESS=$(echo ${OUTPUT} | grep -o '"success":true' | wc -l)
+      if [[ ${SUCCESS} == "1" ]]; then
+        printf "\n########## Imported dashboards successfully! #############################\n"
+      else
+        printf "\n########## Failure while importing dashboards #############\n"
+      fi
+      echo ${OUTPUT}
+    }
+
+    wait_for_kibana
+    import_dashboards
+
+  file.ndjson: |
+{{ .Files.Get "files/aes-kibana-dashboard-new.ndjson" | indent 4 }}

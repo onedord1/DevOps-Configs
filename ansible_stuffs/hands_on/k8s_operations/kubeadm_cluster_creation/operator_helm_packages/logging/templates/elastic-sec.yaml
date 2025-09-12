@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+ name: efk-elasticsearch-sec
+ namespace: {{.Values.namespace}}
+data:
+ password: {{.Values.elasticSearch.password | b64enc}}
+ username: {{.Values.elasticSearch.username | b64enc}}
+type: Opaque
+

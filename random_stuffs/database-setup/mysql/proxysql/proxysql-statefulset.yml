@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: proxysql
+  labels:
+    app: proxysql
+spec:
+  replicas: 1
+  serviceName: proxysqlcluster
+  selector:
+    matchLabels:
+      app: proxysql
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: proxysql
+    spec:
+      restartPolicy: Always
+      containers:
+      - image: proxysql/proxysql:2.3.1
+        name: proxysql
+        volumeMounts:
+        - name: proxysql-config
+          mountPath: /etc/proxysql.cnf
+          subPath: proxysql.cnf
+        - name: my-nfs-pvc
+          mountPath: /var/lib/proxysql
+          subPath: data
+        ports:
+        - containerPort: 6033
+          name: my-nfs-pvc
+        - containerPort: 6032
+          name: proxysql-admin
+      volumes:
+      - name: proxysql-config
+        configMap:
+          name: proxysql-configmap
+  volumeClaimTemplates:
+  - metadata:
+      name: my-nfs-pvc
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: nfs-client
+ 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+  labels:
+    app: proxysql
+  name: proxysql
+spec:
+  ports:
+  - name: proxysql-mysql
+    port: 6033
+    protocol: TCP
+    targetPort: 6033
+  - name: proxysql-admin
+    port: 6032
+    protocol: TCP
+    targetPort: 6032
+  selector:
+    app: proxysql
+

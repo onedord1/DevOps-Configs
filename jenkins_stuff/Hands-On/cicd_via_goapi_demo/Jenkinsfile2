@@ -1,0 +1,33 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'GO_Endpoint', defaultValue: env.GO_ENDPOINT, description: 'go api url')
+        string(name: 'APP_NAME', defaultValue: '', description: 'deployment name')
+        string(name: 'APP_NAMESPACE', defaultValue: '', description: 'deployment namespace')
+        string(name: 'USER_NAME', defaultValue: '', description: 'dockerhub username')
+        string(name: 'IMAGE_TAG', defaultValue: '', description: 'image tag')
+    }
+
+    stages {
+        stage('Curl Go Endpoint') {
+            steps {
+                sh "echo go end point is : ${GO_Endpoint}"
+                sh "echo deployment name is: ${APP_NAME}"
+                sh "echo deployment namespace is: ${APP_NAMESPACE}"
+                sh "echo dockerhub user name is: ${USER_NAME}"
+                sh "echo image tag is: ${IMAGE_TAG}"
+                
+                
+                script {
+                    def IMAGE = "${USER_NAME}/${APP_NAME}:${IMAGE_TAG}"
+                    def data = """{
+                        "Name": "${APP_NAME}",
+                        "Namespace": "${APP_NAMESPACE}",
+                        "Image": "${IMAGE}"
+                    }"""
+                    sh "curl -X POST -H 'Content-Type: application/json' -d '${data}' '${GO_Endpoint}'"
+                }
+            }
+        }
+    }
+}

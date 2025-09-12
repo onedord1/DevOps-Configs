@@ -1,0 +1,36 @@
+<settings>
+  <servers>
+    <server>
+      <id>nexus</id>
+      <username>${env.NEXUS_USER}</username>
+      <password>${env.NEXUS_PASS}</password>
+    </server>
+  </servers>
+
+  <mirrors>
+    <mirror>
+      <id>nexus</id>
+      <mirrorOf>*</mirrorOf>
+      <url>https://172.17.17.242:7443/repository/maven-public/</url>
+    </mirror>
+  </mirrors>
+  
+  <profiles>
+    <profile>
+      <id>jenkins-releases</id>
+      <repositories>
+        <repository>
+          <id>jenkins-releases</id>
+          <name>Jenkins Releases</name>
+          <url>https://repo.jenkins-ci.org/releases/</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+
+  <activeProfiles>
+    <activeProfile>jenkins-releases</activeProfile>
+  </activeProfiles>
+</settings>

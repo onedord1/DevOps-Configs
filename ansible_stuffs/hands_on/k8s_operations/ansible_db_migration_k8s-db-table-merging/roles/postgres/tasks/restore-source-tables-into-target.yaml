@@ -1,0 +1,25 @@
+---
+- name: Restore specific tables into target DB
+  shell: >
+    pg_restore -h {{ target.host }} 
+    -p {{ target.port }} 
+    -U {{ target.user }} 
+    -d {{ target.name }} 
+    --clean 
+    -t "{{ item }}" 
+    "{{ dump_dir_path }}/{{ item }}.dump"
+  environment:
+    PGPASSWORD: "{{ target.password }}"
+  loop: "{{ table_list }}"
+  when: 
+    - table_list | length > 0
+    - item | length > 0
+  register: restore_result
+  failed_when: restore_result.rc != 0
+
+- name: Check dump file is not empty
+  stat:
+    path: "{{ dump_dir_path }}/{{ item }}.dump"
+  register: dump_stat
+  loop: "{{ table_list }}"
+  failed_when: dump_stat.stat.size == 0

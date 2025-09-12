@@ -1,0 +1,24 @@
+- labels:
+    target_name: Local_QuickopsENT
+  targets:
+    - 172.17.19.172:443
+
+- labels:
+    target_name: Local_GitLab_Runner
+  targets:
+    - 172.17.19.245:443
+
+- labels:
+    target_name: Local_GitLab_Instance
+  targets:
+    - 172.17.19.247:8443
+
+- labels:
+    target_name: Local_Minio_Client
+  targets:
+    - 172.17.19.252:8443
+
+- labels:
+    target_name: Local_SonarQube
+  targets:
+    - 172.17.19.149:84

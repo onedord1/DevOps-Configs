@@ -1,0 +1,24 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cors-headers
+  namespace: dev-quickops
+spec:
+  headers:
+    accessControlAllowOriginList:
+      - "*"
+    accessControlAllowMethods:
+      - "GET"
+      - "OPTIONS"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    accessControlAllowHeaders:
+      - "traceparent"
+      - "Authorization"
+      - "Content-Type"
+      - "Accept"
+      - "X-Requested-With"
+      - "Origin"
+    accessControlMaxAge: 100
+    addVaryHeader: true

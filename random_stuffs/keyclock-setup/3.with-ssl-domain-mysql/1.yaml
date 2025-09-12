@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:23.0
+        args: ["start", "--cache-stack=kubernetes"]
+        env:
+        - name: KEYCLOAK_ADMIN
+          value: "admin"
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: "admin"
+        - name: KC_PROXY
+          value: "edge"
+        - name: jgroups.dns.query
+          value: "keycloak"
+        - name: PROXY_ADDRESS_FORWARDING
+          value: "true"
+        - name: KC_PROXY_HEADERS
+          value: "xforwarded"
+        - name: KC_PROXY_HOSTNAME_PORT
+          value: "443"
+
+
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_HTTP_RELATIVE_PATH
+          value: "/"
+        - name: KC_HOSTNAME_URL
+          value: "https://erpnext.anwarlabs.com/keycloak/"
+        - name: KC_HOSTNAME_ADMIN_URL
+          value: "https://erpnext.anwarlabs.com/keycloak/"
+        - name: KC_DB
+          value: "mysql"
+        - name: KC_DB_URL
+          value: "jdbc:mysql://mysql-headless/keycloak"
+        - name: KC_DB_URL_HOST
+          value: "mysql"
+        - name: KC_DB_URL_PORT
+          value: "3306"
+        - name: KC_DB_URL_DATABASE
+          value: "keycloak"
+        - name: KC_DB_USERNAME
+          value: "keyUser"
+        - name: KC_DB_PASSWORD
+          value: "keyUser213"
+
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: jgroups
+          containerPort: 7600
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  labels:
+    app: keycloak
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: keycloak
+  type: ClusterIP
+  clusterIP: None

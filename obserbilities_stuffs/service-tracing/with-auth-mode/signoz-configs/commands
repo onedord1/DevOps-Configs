@@ -1,0 +1,4 @@
+# Generate a new random key for signoz
+openssl rand -base64 32
+
+chmod +x ./nginx/nginx-entrypoint.sh

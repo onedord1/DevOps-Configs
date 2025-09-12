@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jenkins-agent
+  template:
+    metadata:
+      labels:
+        app: jenkins-agent
+    spec:
+      containers:
+      - name: jenkins-agent
+        image: devopsaes/jenkinsdind
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: docker-sock-volume
+          mountPath: /var/run/docker.sock
+      volumes:
+      - name: docker-sock-volume
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-agent-service
+spec:
+  selector:
+    app: jenkins-agent
+  ports:
+    - protocol: TCP
+      port: 8080 # Port to access Jenkins within the cluster
+      targetPort: 8080
+      nodePort: 30000 # NodePort to access Jenkins externally
+  type: NodePort

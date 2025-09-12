@@ -1,0 +1,79 @@
+// Docs & Explanation can be found at config-yaml repository
+pipeline {
+    agent any
+    environment {
+
+        //------------ D O C K E R -----------------------------
+        DOCKER_REGISTRY = "registry.anwarlabs.com"
+        DOCKER_REPO_PATH = "erp-backend/erp-backend"
+        DOCKER_IMAGE_NAME = "registry.anwarlabs.com/erp-backend/erp-backend"
+
+        //-------------- G I T -------------------------------
+        GIT_BRANCH = "main"
+        GIT_URL = "https://gitlab.com/aes-erp/backend.git"
+        GIT_CRED_ID = "aes-git-lab"       
+
+        //-------------- T a g ------------------------------
+        MAJOR_VERSION = "1"
+        MINOR_VERSION = "$BUILD_NUMBER"
+        TAG = "${MAJOR_VERSION}.${MINOR_VERSION}"
+    }
+    
+    tools {
+        maven 'mvn'
+        jdk 'jdk17'
+    }
+    stages {
+        stage('CLEANUP WORKSPACE'){
+            steps {
+                script {
+                    cleanWs()
+                }
+            }
+        }
+        stage('Git Clone') {
+            steps {
+                git branch: GIT_BRANCH, credentialsId: GIT_CRED_ID, url: GIT_URL
+            }
+        }
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean install -DskipTests'
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t ${DOCKER_IMAGE_NAME}:${TAG} ."
+            }
+        }
+        stage('Docker login+push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'private-hub', passwordVariable: 'PASS', usernameVariable: 'UNAME')]) {
+                    sh "echo ${PASS} | docker login --username ${UNAME} --password-stdin ${DOCKER_REGISTRY}"
+                    sh "docker push ${DOCKER_IMAGE_NAME}:${TAG}"
+                }
+            }
+        }
+        stage('Docker Logout & Image rmi') {
+            steps {
+                sh 'docker logout ${DOCKER_REGISTRY}'
+                sh "docker rmi ${DOCKER_IMAGE_NAME}:${TAG}"
+            }
+        }    
+    }
+
+    post{
+        success {
+            hangoutsNotify(
+            message: "PIPELINE: $env.JOB_NAME has completed SUCCESSFULLY.<br>BUILD NUMBER: $env.BUILD_NUMBER<br>BUILD TAG: $env.TAG<br>DOCKER_IMAGE: $env.DOCKER_IMAGE_NAME:$env.TAG",
+            threadByJob: true,
+            )
+        }
+        failure {
+            hangoutsNotify(
+            message: "WARNING!<br>PIPELINE: $env.JOB_NAME has been FAILED!!.<br>BUILD NUMBER: $env.BUILD_NUMBER<br>BUILD TAG: $env.TAG<br>",
+            threadByJob: true,
+            )
+        }
+    }
+}

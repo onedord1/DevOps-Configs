@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kibana-import
+  namespace: core-ns
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 5
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: kibana-data
+          configMap:
+            name: kibana-data
+            defaultMode: 0777
+      containers:
+        - name: kibana-import
+          image: curlimages/curl:8.9.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KIBANA_URL
+              value: "efk-kibana-kb-http.core-ns.svc.cluster.local"
+            - name: KIBANA_PORT
+              value: "5601"
+            - name: KIBANA_USERNAME
+              value: "aes"
+            - name: KIBANA_PASSWORD
+              value: "aes1234"
+          command: ["/bin/sh", "/kibana/curl-script.sh"]
+          volumeMounts:
+            - name: kibana-data
+              mountPath: /kibana/

@@ -1,0 +1,36 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dev-quickops-ingress
+  namespace: dev-quickops
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`dev.quickops.io`)
+      middlewares:
+        - name: cors-headers
+          namespace: dev-quickops
+      services:
+        - name: quickopsfe-service
+          port: 80
+    - kind: Rule
+      match: Host(`devbe.quickops.io`)
+      middlewares:
+        - name: cors-headers
+          namespace: dev-quickops
+      services:
+        - name: quickopsbe-service
+          port: 8083
+    - kind: Rule
+      match: Host(`devgo.quickops.io`)
+      middlewares:
+        - name: cors-headers
+          namespace: dev-quickops
+      services:
+        - name: quickopsgo-service
+          port: 8084
+  tls:
+    secretName: dev-quickops

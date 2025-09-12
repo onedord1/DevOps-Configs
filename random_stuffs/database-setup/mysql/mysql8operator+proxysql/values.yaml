@@ -1,0 +1,183 @@
+nameOverride: samplename
+namespaceOverride: dev
+architecture: replication
+#namespaceOverride: samplens
+global:
+  storageClass: "nfs-client"
+initdbScripts:
+  my_init_script.sql: |
+
+    CREATE USER monitor@'%' IDENTIFIED BY 'monitor';
+    FLUSH PRIVILEGES;
+
+    CREATE DATABASE IF NOT EXISTS app_data;
+    USE app_data;
+
+
+    CREATE TABLE IF NOT EXISTS sadman (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    age INT,
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO sadman (name, age, email) VALUES
+    ('John Doe', 30, 'john@example.com'),
+    ('Jane Smith', 25, 'jane@example.com'),
+    ('Bob Johnson', 35, 'bob@example.com');
+
+
+######## authentication ########
+auth:
+  database: demo_proj
+  rootPassword: "akif123"
+  createDatabase: true
+  replicationPassword: "akif123"
+  replicationUser: replicator
+  username: "akif123"
+  password: "akif123"
+
+############ master db pod ############
+primary:
+  name: "master"
+  podLabels: {
+    dbpod.role: master,
+    dbpod.namespace: namespace
+  }
+  persistence:
+    enabled: true
+    size: 1Gi
+    accessModes:
+      - ReadWriteMany
+  configuration: |-
+    [mysqld]
+    default_authentication_plugin={{- .Values.auth.defaultAuthPlugin | default "mysql_native_password" }}
+    skip-name-resolve
+    explicit_defaults_for_timestamp
+    basedir=/opt/bitnami/mysql
+    plugin_dir=/opt/bitnami/mysql/lib/plugin
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    datadir=/bitnami/mysql/data
+    tmpdir=/opt/bitnami/mysql/tmp
+    max_allowed_packet=16M
+    bind-address=*
+    pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+    log-error=/opt/bitnami/mysql/logs/mysqld.log
+    character-set-server=UTF8
+    slow_query_log=0
+    long_query_time=10.0
+
+    [client]
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    default-character-set=UTF8
+    plugin_dir=/opt/bitnami/mysql/lib/plugin
+
+    [manager]
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+  resources:
+    ## Example:
+    ## limits:
+    ##    cpu: 250m
+    ##    memory: 256Mi
+    ##
+    limits: {}
+    ## Examples:
+    ## requests:
+    ##    cpu: 250m
+    ##    memory: 256Mi
+    ##
+    requests: {}
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 35
+    periodSeconds: 15
+    timeoutSeconds: 1
+    failureThreshold: 15
+    successThreshold: 1
+
+######## slave db #########3
+secondary:
+  name: slave
+  podLabels: {
+    dbpod.role: slave,
+    dbpod.namespace: namespace
+  }
+  replicaCount: 2
+  persistence:
+    enabled: true
+    accessModes:
+    - ReadWriteMany
+    size: 1Gi
+
+  configuration: |-
+    [mysqld]
+    default_authentication_plugin=mysql_native_password
+    skip-name-resolve
+    read-only 
+    explicit_defaults_for_timestamp
+    basedir=/opt/bitnami/mysql
+    plugin_dir=/opt/bitnami/mysql/lib/plugin
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    datadir=/bitnami/mysql/data
+    tmpdir=/opt/bitnami/mysql/tmp
+    max_allowed_packet=16M
+    bind-address=*
+    pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+    log-error=/opt/bitnami/mysql/logs/mysqld.log
+    character-set-server=UTF8MB4
+    slow_query_log=0
+    long_query_time=10.0
+    
+
+    [client]
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    default-character-set=UTF8
+    plugin_dir=/opt/bitnami/mysql/lib/plugin
+
+    [manager]
+    port=3306
+    socket=/opt/bitnami/mysql/tmp/mysql.sock
+    pid-file=/opt/bitnami/mysql/tmp/mysqld.pid
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 10
+    successThreshold: 1

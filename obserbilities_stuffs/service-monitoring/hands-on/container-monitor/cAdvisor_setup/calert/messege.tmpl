@@ -1,0 +1,9 @@
+🚨 *{{ .Labels.alertname | toUpper }}* - {{ .Status | toUpper }}
+
+• *Instance:* {{ .Labels.instance }}
+• *Container Name:* {{ if .Labels.name }}{{ .Labels.name }}{{ else }}unknown{{ end }}
+• *Project:* {{ if .Labels.container_label_com_docker_compose_project }}{{ .Labels.container_label_com_docker_compose_project }}{{ else }}unknown{{ end }}
+• *Service:* {{ if .Labels.container_label_com_docker_compose_service }}{{ .Labels.container_label_com_docker_compose_service }}{{ else }}unknown{{ end }}
+• *Severity:* {{ if .Labels.severity }}{{ .Labels.severity }}{{ else }}unknown{{ end }}
+• *Summary:* {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}No summary provided{{ end }}
+• *Started at:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}

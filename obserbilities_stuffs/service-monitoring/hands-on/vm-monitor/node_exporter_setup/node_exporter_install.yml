@@ -1,0 +1,158 @@
+---
+- name: Install and Configure Prometheus Node Exporter
+  hosts: all
+  become: yes
+  # become_user: master
+  vars:
+    node_exporter_version: "1.9.1"
+    node_exporter_user: "node_exporter"
+    node_exporter_group: "node_exporter"
+    node_exporter_config_dir: "/opt/node_exporter"
+    node_exporter_binary: "/usr/local/bin/node_exporter"
+    local_tarball_path: "files/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    local_cert_path: "files/node_exporter.crt"
+    local_key_path: "files/node_exporter.key"
+    bcrypt_password_hash: "$2a$20$OhTxXo3JE4VVB7d.jaY.muGOn5ZqlBUgv8leePuelvV5lKVEJ50Gi"
+
+  tasks:
+    - name: Create node_exporter user
+      user:
+        name: "{{ node_exporter_user }}"
+        system: yes
+        shell: /usr/sbin/nologin
+        home: /nonexistent
+        create_home: no
+
+    - name: Create node_exporter config directory
+      file:
+        path: "{{ node_exporter_config_dir }}"
+        state: directory
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        mode: '0755'
+
+    - name: Copy node_exporter tarball to remote host
+      copy:
+        src: "{{ local_tarball_path }}"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        mode: '0644'
+
+    - name: Extract node_exporter tarball
+      unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp"
+        remote_src: yes
+        creates: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64"
+
+    - name: Copy node_exporter binary to /usr/local/bin
+      copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: "{{ node_exporter_binary }}"
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+
+    - name: Copy SSL certificate
+      copy:
+        src: "{{ local_cert_path }}"
+        dest: "{{ node_exporter_config_dir }}/node_exporter.crt"
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        mode: '0644'
+
+    - name: Copy SSL private key
+      copy:
+        src: "{{ local_key_path }}"
+        dest: "{{ node_exporter_config_dir }}/node_exporter.key"
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        mode: '0600'
+
+    - name: Create node_exporter config file
+      copy:
+        content: |
+          tls_server_config:
+            cert_file: {{ node_exporter_config_dir }}/node_exporter.crt
+            key_file: {{ node_exporter_config_dir }}/node_exporter.key
+          basic_auth_users:
+            aesmonitor: {{ bcrypt_password_hash }}
+        dest: "{{ node_exporter_config_dir }}/config.yml"
+        owner: "{{ node_exporter_user }}"
+        group: "{{ node_exporter_group }}"
+        mode: '0644'
+
+    - name: Create systemd service file
+      copy:
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User={{ node_exporter_user }}
+          Group={{ node_exporter_group }}
+          ExecStart={{ node_exporter_binary }} --web.config.file={{ node_exporter_config_dir }}/config.yml
+
+          [Install]
+          WantedBy=default.target
+        dest: /etc/systemd/system/node_exporter.service
+        mode: '0644'
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start node_exporter service
+      systemd:
+        name: node_exporter
+        enabled: yes
+        state: started
+
+    - name: Wait for service to start
+      wait_for:
+        port: 9100
+        delay: 5
+        timeout: 30
+
+    - name: Clean up temporary files
+      file:
+        path: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        state: absent
+
+    - name: Clean up extracted directory
+      file:
+        path: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64"
+        state: absent
+
+    - name: Verify node_exporter service status
+      systemd:
+        name: node_exporter
+      register: service_status
+
+    - name: Display service status
+      debug:
+        msg: "Node Exporter service is {{ service_status.status.ActiveState }}"
+
+    - name: Test HTTPS endpoint (ignore SSL verification for self-signed cert)
+      uri:
+        url: "https://localhost:9100/metrics"
+        method: GET
+        user: "aesmonitor"
+        password: "UdnBf00R@z06"
+        validate_certs: no
+        status_code: 200
+      register: metrics_test
+      retries: 5
+      delay: 15
+      until: metrics_test.status == 200
+      ignore_errors: yes
+
+    - name: Display metrics test result
+      debug:
+        msg: "Metrics endpoint test: {{ 'SUCCESS' if metrics_test.status == 200 else 'FAILED' }}"
+      until: metrics_test.status == 200
+      retries: 5
+      delay: 15
+

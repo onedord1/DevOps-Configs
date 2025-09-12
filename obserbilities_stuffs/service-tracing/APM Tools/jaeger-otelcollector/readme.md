@@ -1,0 +1,1 @@
+reference: https://github.com/jaegertracing/jaeger/blob/v2.8.0/cmd/jaeger/config-spm.yaml

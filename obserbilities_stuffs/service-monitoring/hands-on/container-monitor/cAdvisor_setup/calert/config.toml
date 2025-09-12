@@ -1,0 +1,16 @@
+[app]
+address = "0.0.0.0:6000"
+server_timeout = "60s"
+enable_request_logs = true
+log = "info"
+
+
+[providers.containeralert]
+type = "google_chat"
+endpoint = "https://chat.googleapis.com/v1/spaces/AAQAMnSDw10/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=O1o9BQU6NJzpunZvwmXtftpFn-s8eUiJGtVoviJOwX4"
+max_idle_conns = 50
+timeout = "30s"
+template = "/etc/calert/container.tmpl"
+thread_ttl = "12h"
+#threaded_replies = true
+dry_run = false

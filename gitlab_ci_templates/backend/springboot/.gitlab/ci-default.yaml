@@ -1,0 +1,8 @@
+stages:
+- void_trigger
+void_trigger:
+  stage: void_trigger
+  script:
+    - echo "Pipeline executed"
+  rules:
+    - when: never

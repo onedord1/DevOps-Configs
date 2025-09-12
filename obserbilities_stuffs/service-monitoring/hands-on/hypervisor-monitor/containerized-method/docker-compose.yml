@@ -1,0 +1,15 @@
+services:
+  prometheus-pve-exporter:
+    image: prompve/prometheus-pve-exporter
+    container_name: prometheus-pve-exporter
+    ports:
+      - "9221:9221"
+    volumes:
+      - /etc/prometheus/pve.yml:/etc/prometheus/pve.yml
+      - /etc/prometheus/ssl:/etc/prometheus/ssl:ro
+    command: [
+      "--config.file", "/etc/prometheus/pve.yml",
+      "--server.certfile", "/etc/prometheus/ssl/server.crt",
+      "--server.keyfile", "/etc/prometheus/ssl/server.key"
+    ]
+    restart: unless-stopped

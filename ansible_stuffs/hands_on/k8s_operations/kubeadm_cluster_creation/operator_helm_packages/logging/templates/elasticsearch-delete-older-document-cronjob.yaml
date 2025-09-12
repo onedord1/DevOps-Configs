@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: es-delete-older-doc
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: "0 0 */{{ .Values.elasticSearch.logRetention }} * *"
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: es-cm-data
+              configMap:
+                name: es-cm-data
+                defaultMode: 0777
+          containers:
+            - name: deleteolderdoc
+              image: curlimages/curl:8.9.1
+              imagePullPolicy: IfNotPresent
+              env: 
+                - name: ES_USERNAME
+                  value:  {{ .Values.elasticSearch.username }}
+                - name: ES_PASSWORD
+                  value:  {{ .Values.elasticSearch.password }}
+                - name: ES_HOST
+                  value: "efk-elasticsearch-es-http.{{ .Values.namespace }}.svc.cluster.local"
+                - name: ES_RETENTION_PERIOD
+                  value: "2"
+              volumeMounts:
+                - name: es-cm-data
+                  mountPath: /elasticsearch/
+              command: ["/bin/sh", "/elasticsearch/delete-older-data-elasticsearch.sh"]
+          restartPolicy: OnFailure

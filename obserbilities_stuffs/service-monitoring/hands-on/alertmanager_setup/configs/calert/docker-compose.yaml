@@ -1,0 +1,10 @@
+services:
+  calert:
+    image: ghcr.io/mr-karan/calert:latest
+    container_name: calert
+    ports:
+      - "6000:6000"
+    volumes:
+      - ./config.toml:/app/config.sample.toml:ro
+      - ./message.tmpl:/etc/calert/message.tmpl:ro
+    restart: unless-stopped

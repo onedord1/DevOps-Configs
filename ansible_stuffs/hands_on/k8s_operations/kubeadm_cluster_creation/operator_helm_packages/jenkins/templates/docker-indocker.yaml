@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dind
+  namespace: {{ template "jenkins.namespace" . }}
+  labels:
+    app: dind
+spec:
+  ports:
+  - name: tcp
+    port: 2375
+    targetPort: 2375
+  selector:
+    app: dind
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dind
+  namespace: {{ template "jenkins.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dind
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: dind
+        version: v1
+    spec:
+      containers:
+      - name: dind-daemon
+        ports:
+        - containerPort: 2375
+        image: docker:dind-rootless
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: dind-storage
+          mountPath: /var/lib/docker
+        env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ''
+      volumes:
+      - name: dind-storage
+        emptyDir: {}

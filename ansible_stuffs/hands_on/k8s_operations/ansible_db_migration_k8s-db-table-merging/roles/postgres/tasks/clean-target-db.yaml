@@ -1,0 +1,19 @@
+- name: Drop target PostgreSQL database
+  community.postgresql.postgresql_db:
+    login_host: "{{ target.host }}"
+    login_port: "{{ target.port }}"
+    login_user: "{{ target.user }}"
+    login_password: "{{ target.password }}"
+    name: "{{ target.name }}"
+    state: absent
+
+- name: Create target PostgreSQL database
+  community.postgresql.postgresql_db:
+    login_host: "{{ target.host }}"
+    login_port: "{{ target.port }}"
+    login_user: "{{ target.user }}"
+    login_password: "{{ target.password }}"
+    name: "{{ target.name }}"
+    owner: "{{ target.user }}"
+    encoding: 'UTF8'
+    state: present

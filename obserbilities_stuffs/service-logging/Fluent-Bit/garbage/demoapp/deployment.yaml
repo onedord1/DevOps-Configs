@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: json-logger
+  labels:
+    app: json-logger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: json-logger
+  template:
+    metadata:
+      labels:
+        app: json-logger
+    spec:
+      containers:
+      - name: logger
+        image: alpine
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            while true; do
+              echo "{\"@timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"log\":{\"level\":\"INFO\",\"message\":\"Hello from JSON logger\"}}"
+              sleep 2
+            done

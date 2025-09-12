@@ -1,0 +1,21 @@
+DOCKER_AUTH_CONFIG: {
+        "auths": {
+                "registry.cloudaes.com": {
+                        "auth": "cm9ib3QkcXVpY2tvcHMtYXV0b21hdGlvbjphMllOemdWQ20xcWQ5aGdjTVhSeTdzM2V5emlKNVdmSA=="
+                }
+        }
+}
+GOOGLE_CHAT_WEBHOOK_URL: https://chat.googleapis.com/v1/spaces/AAQAuKvWB60/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=CcctuVfFoLt6Gcfa4paGrIFS_KbqmEkFV5HaeUGXEA4
+NEXUS_PASS: 9ZC6P7j5fjy2t
+NEXUS_USER: developer
+SONAR_TOKEN: sqp_326e1b6931f8993d95d8f4a4cb6e8a39b77557c6
+harboruser: robot$quickops-automation
+harborpass: a2YNzgVCm1qd9hgcMXRy7s3eyziJ5WfH
+gituser: gitlabcicd
+gitpass: stHeRImPligRAMinEa
+dev_argo_url: 172.17.17.3:32106
+argo_user: developer
+argo_pass: %984&K4naB%y8J
+qa_argo_url: 172.17.17.155:31408
+prod_argo_url: 172.17.19.11:30388
+SONAR_URL: https://sonarqube.quickops.io

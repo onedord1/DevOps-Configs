@@ -1,0 +1,26 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:17.10.4-ce.0
+    container_name: gitlab-main-server
+    restart: always
+    hostname: 'gitlab.aes-core.com'
+    ports:
+      - '7474:22'
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./config:/etc/gitlab
+      - ./logs:/var/log/gitlab
+      - ./data:/var/opt/gitlab
+      - ./backups:/var/opt/gitlab/backups
+      - ./ssl:/etc/gitlab/ssl/
+    shm_size: '256m'
+
+  gitlab-runner:
+    image: docker.io/gitlab/gitlab-runner:alpine-v17.9.1
+    container_name: gitlab-runner-1
+    volumes:
+      - ./runner-config/config.toml:/etc/gitlab-runner/config.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/www/gitlab/ssl/gitlab.aes-core.com.crt:/etc/gitlab-runner/certs/ca.crt
+    restart: always

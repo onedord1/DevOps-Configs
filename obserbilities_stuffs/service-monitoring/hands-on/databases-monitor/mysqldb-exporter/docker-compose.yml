@@ -1,0 +1,13 @@
+services:
+    #MySQL_Prometheus_Exporter
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    command: 
+      - --config.my-cnf=/cfg/.my.cnf
+      - --mysqld.address=my-mysql:3306
+    volumes:
+      - "./.mysqlexp.cnf:/cfg/.my.cnf"
+    ports:
+      - "9104:9104"
+    depends_on:
+      - mysqldb

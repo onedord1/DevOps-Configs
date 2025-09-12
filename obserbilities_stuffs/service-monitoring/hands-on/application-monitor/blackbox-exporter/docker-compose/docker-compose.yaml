@@ -1,0 +1,14 @@
+services:
+  blackbox:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./certs:/certs:ro
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+      - ./blackbox/web.config.yml:/etc/blackbox_exporter/web.config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+      - '--web.config.file=/etc/blackbox_exporter/web.config.yml'

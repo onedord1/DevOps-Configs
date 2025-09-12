@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: application-akif
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: application-akif
+  template:
+    metadata:
+      labels:
+        app: application-akif
+    spec:
+      containers:
+      - name: application-akif
+        image: busybox:1.28
+        args:
+        - /bin/sh
+        - -c
+        - >
+          i=0;
+          while true;
+          do
+            echo "akifffffffffffffff text" ;
+            echo "akiffffff text" ;
+            i=$((i+1));
+            sleep 1;
+          done

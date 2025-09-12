@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: argocd
+  name: argocd-notifications-cm
+data:
+  service.googlechat: |
+    webhooks:
+      spaceName: $space-webhook-url
+
+  template.app-sync-succeeded: |
+      message: |
+        ✅ *Application Synced Successfully*
+        *Name:* {{ .app.metadata.name }}
+        *Project:* {{ .app.spec.project }}
+        *Sync Status:* {{ .app.status.sync.status }}
+        *Health:* {{ .app.status.health.status }}
+  template.app-deleted: |
+    googlechat:
+      message: |
+        ⚠️ *Application Deleted*
+        *Name:* {{ .app.metadata.name }}
+        *Project:* {{ .app.spec.project }}
+        *Environment:* {{ .app.metadata.labels.environment }}
+  template.app-sync-status-unknown: |
+    googlechat:
+      message: |
+        ❔ *Application Sync Status: Unknown*
+        *Name:* {{ .app.metadata.name }}
+        *Project:* {{ .app.spec.project }}
+        *Sync Status:* {{ .app.status.sync.status }}
+        *Health:* {{ .app.status.health.status }}
+  template.app-health-degraded: |
+    googlechat:
+      message: |
+        🚨 *Application Health Degraded*
+        *Name:* {{ .app.metadata.name }}
+        *Project:* {{ .app.spec.project }}
+        *Health Status:* {{ .app.status.health.status }}
+        *Sync Status:* {{ .app.status.sync.status }}
+  template.app-sync-failed: |
+    googlechat:
+      message: |
+        ❌ *Application Sync Failed*
+        *Name:* {{ .app.metadata.name }}
+        *Project:* {{ .app.spec.project }}
+        *Sync Phase:* {{ .app.status.operationState.phase }}
+        *Health:* {{ .app.status.health.status }}
+        
+  trigger.on-sync-succeeded: |
+    - when: app.status.operationState.phase == "Succeeded"
+      send: 
+        - app-sync-succeeded
+  trigger.on-deleted: |
+    - description: Application is deleted.
+      oncePer: app.metadata.name
+      send:
+      - app-deleted
+      when: app.metadata.deletionTimestamp != nil
+
+  trigger.on-sync-status-unknown: |
+    - description: Application status is 'Unknown'
+      send:
+      - app-sync-status-unknown
+      when: app.status.sync.status == 'Unknown'
+
+  trigger.on-health-degraded: |
+    - description: Application has degraded
+      send:
+      - app-health-degraded
+      when: app.status.health.status == 'Degraded'
+  trigger.on-sync-failed: |
+    - description: Application syncing has failed
+      send:
+      - app-sync-failed
+      when: app.status.operationState.phase in ['Error', 'Failed']
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: argocd
+  name: argocd-notifications-secret
+stringData:
+  space-webhook-url: https://chat.googleapis.com/v1/spaces/AAQAGNCqGs0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=ppla4hVTg9jROT2XkocSUbSmCqLZ1zO0uhnzElJYZ5Y

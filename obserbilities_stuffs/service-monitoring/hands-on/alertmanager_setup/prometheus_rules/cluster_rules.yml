@@ -1,0 +1,11 @@
+groups:
+  - name: cluster-monitoring
+    rules:
+      - alert: ClusterDown
+        expr: up{job="kube-state-metrics", cluster=~".+"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cluster {{ $labels.cluster }} is down"
+          description: "Cluster {{ $labels.cluster }} has been down for more than 5 minutes."

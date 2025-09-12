@@ -1,0 +1,59 @@
+services:
+  jaeger:
+    image: jaegertracing/jaeger:${JAEGER_VERSION:-latest}
+    container_name: jaeger
+    volumes:
+      - ./config-spm.yaml:/etc/jaeger/config.yml
+        #      - ./prometheus.crt:/etc/ssl/certs/prometheus.crt
+      - ./jaeger-ui.json:/etc/jaeger/jaeger-ui.json
+    command: ["--config", "/etc/jaeger/config.yml"]
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_QUERY_NAMESPACE=span_metrics
+      - PROMETHEUS_QUERY_NORMALIZE_CALLS=true
+      - PROMETHEUS_QUERY_NORMALIZE_DURATION=true
+      - PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR=true
+    ports:
+      - "16686:16686"
+      - "8888:8888"
+      - "8889:8889" #while using otlp collector these port shouldnt be explosed
+      - "4317:4317"
+      - "4318:4318"
+    restart: unless-stopped
+    networks:
+      otel-jaeger-net:
+        aliases:
+          - jaeger
+          - spm_metrics_source
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    depends_on:
+      - jaeger
+    ports:
+      - "1888"
+      - "13133"
+      - "4317"    #while using otlp collector must expose these ports
+      - "4318"
+    restart: unless-stopped
+    networks:
+      - otel-jaeger-net
+
+  prometheus:
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    volumes:
+      - "./prometheus.yml:/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - otel-jaeger-net
+
+networks:
+  otel-jaeger-net:
+    driver: bridge

@@ -1,0 +1,15 @@
+# Exporter used 
+- for cluster
+    - kube promethues stack [node_exporter, kube-metrics] - [https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack]
+- for postgresDB
+    - postgres-exporter [https://github.com/prometheus-community/postgres_exporter]
+- for mysqlDB
+    - mysqld-exporter [https://github.com/prometheus/mysqld_exporter]
+- for vm
+    - node_exporter
+- for docker container
+    - cAdvisor
+- for Proxmox-Hypervisor
+    - pve-exporter [https://github.com/prometheus-pve/prometheus-pve-exporter]
+- for Application
+    - blackbox-exporter [https://github.com/prometheus/blackbox_exporter]

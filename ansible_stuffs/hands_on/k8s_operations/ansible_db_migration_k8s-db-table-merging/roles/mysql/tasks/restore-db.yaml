@@ -1,0 +1,8 @@
+# MySQL restore example
+- name: Restore MySQL dump into target database
+  shell: >
+    mysql -h {{ target.host }} -P {{ target.port }}
+    -u {{ target.user }} -p'{{ target.password }}' {{ target.name }}
+    < "{{ dump_file }}"
+  args:
+    warn: false

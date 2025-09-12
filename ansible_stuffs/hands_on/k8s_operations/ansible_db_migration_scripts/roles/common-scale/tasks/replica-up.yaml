@@ -1,12 +1,11 @@
 - name: Scale up backend replicas
-  kubernetes.core.k8s:
+  kubernetes.core.k8s_scale:
     kubeconfig: "{{ kubeconfig }}"
     namespace: "{{ namespace }}"
-    definition:
-      apiVersion: "{{ apiversion }}"
-      kind: "{{ crds }}"
-      metadata:
-        name: "{{ deployment }}"
-      spec:
-        backendReplicas: "{{ replicas }}"
-    state: present
+    api_version: "{{ apiversion }}"
+    kind: "{{ crds }}"
+    name: "{{ deployment }}"
+    replicas: "{{ replicas | int }}"
+    wait: true
+    wait_timeout: 300
+    wait_sleep: 10 

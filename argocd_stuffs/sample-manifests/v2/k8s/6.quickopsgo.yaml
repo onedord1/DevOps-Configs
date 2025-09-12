@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: prod-quickops  
+  name: quickopsgo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsgo
+  template:
+    metadata:
+      labels:
+        app: quickopsgo
+    spec:
+      imagePullSecrets:
+       - name: harbor-pull-secret
+      containers:
+      - name: quickopsgo
+        image: registry.cloudaes.com/quickops-cloudhub/cloudhub:02Jul-09-33-b6fd9fe
+        ports:
+          - containerPort: 8084
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: prod-quickops  
+  name: quickopsgo-service
+spec:
+  selector:
+    app: quickopsgo
+  ports:
+    - protocol: TCP
+      port: 8084
+      targetPort: 8084
+  type: ClusterIP

@@ -1,0 +1,13 @@
+apiVersion: webapp.aes.dev/v1
+kind: CorePod
+metadata:
+  labels:
+    app.kubernetes.io/name: corepod
+    app.kubernetes.io/instance: corepod-sample
+    app.kubernetes.io/part-of: orgpod
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: orgpod
+  name: core
+spec:
+  goImg: "devopsaes/kuberaes:0.3.166"
+  beReplicas: 1

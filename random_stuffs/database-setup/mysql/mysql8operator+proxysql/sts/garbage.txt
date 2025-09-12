@@ -1,0 +1,18 @@
+https://www.percona.com/blog/getting-started-with-proxysql-in-kubernetes/
+kubectl run -i --rm --tty percona-client --image=percona/percona-server:latest --restart=Never -- bash -il
+
+##init script
+#create these users
+
+#init script to create monitor user
+CREATE USER monitor@'%' IDENTIFIED BY 'monitor';
+FLUSH PRIVILEGES;
+
+
+### init script to create user for application user
+CREATE USER akif@'%' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON demo_proj.* TO 'akif'@'%';
+FLUSH PRIVILEGES;
+
+
+

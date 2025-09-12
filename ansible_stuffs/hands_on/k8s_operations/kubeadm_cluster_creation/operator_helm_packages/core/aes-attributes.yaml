@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: core-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aescloud-engine
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aes-attributes
+  namespace: aescloud-engine
+data:
+  storageclass: "nfs-client"
+  storageclass-accessmode: "ReadWriteMany"
+

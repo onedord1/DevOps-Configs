@@ -1,0 +1,44 @@
+extensions:
+  basicauth/prw:
+    client_auth:
+      username: "aesadmin"
+      password: "@es2025"
+
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: "0.0.0.0:4317" }
+      http:
+        endpoint: "0.0.0.0:4318"
+        cors:
+          allowed_origins: ["http://172.17.17.162"]
+          allowed_headers: ["Content-Type", "Authorization"]
+
+processors:
+  batch:
+    timeout: 30s  
+    send_batch_size: 1048
+
+exporters:
+  otlp:
+    endpoint: "jaeger:4317"
+    tls: { insecure: true }
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+        #    auth:
+        #      authenticator: basicauth/prw
+connectors:
+  spanmetrics:
+    namespace: span.metrics
+
+service:
+  #  extensions: [basicauth/prw]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp, spanmetrics]
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      processors: [batch]
+      exporters: [prometheus]

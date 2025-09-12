@@ -1,0 +1,27 @@
+apiVersion: v1
+data:
+  policy.csv: |
+    p, role:developer, logs, get, default/bmdsales-dev*, allow
+    p, role:developer, applications, get, default/bmdsales-dev*, allow
+    p, role:developer, applications, sync, default/bmdsales-dev*, allow
+
+    #BMD_SALES_DEV
+    p, role:bmddeveloper, logs, get, default/bmdsales-dev*, allow
+    p, role:bmddeveloper, applications, get, default/bmdsales-dev*, allow
+    p, role:bmddeveloper, applications, sync, default/bmdsales-dev*, allow
+    p, role:bmddeveloper, applications, delete/*/Pod/bmdsales-dev-ns/bmd-sales-be-*, default/bmdsales-dev-ns, allow
+
+    #Anwar instances
+    p, role:developer, logs, get, default/anwar-*, allow
+    p, role:developer, applications, get, default/anwar-*, allow
+    p, role:developer, applications, sync, default/anwar-*, allow
+
+    g, developer, role:developer
+    g, bmddeveloper, role:bmddeveloper
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+  name: argocd-rbac-cm
+  namespace: argocd

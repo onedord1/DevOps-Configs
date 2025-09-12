@@ -1,0 +1,1 @@
+odd error: cannot specify specific scopes for do permission

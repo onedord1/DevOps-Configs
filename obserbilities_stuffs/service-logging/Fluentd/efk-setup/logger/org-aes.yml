@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: org-aes
+spec:
+  containers:
+  - name: org-aes
+    image: busybox:1.28
+    args:
+    - /bin/sh
+    - -c
+    - >
+      i=0;
+      while true;
+      do
+        echo "logs from org-aes incoming ...  ...   ...  ..." >> /var/log/org-aes.log
+        sleep 3;
+      done      
+    volumeMounts:
+    - name: varlog
+      mountPath: /var/log
+  
+  volumes:
+  - name: varlog
+    hostPath:
+      path: /var/log

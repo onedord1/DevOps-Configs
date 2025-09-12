@@ -1,0 +1,17 @@
+---
+services:
+  minio:
+    image: quay.io/minio/minio
+    container_name: minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # MinIO API Port
+      - "9001:9001"  # MinIO Console Port
+    environment:
+      MINIO_ROOT_USER: "superAdmin"
+      MINIO_ROOT_PASSWORD: "poYG&w#Q8Y&A0GW"
+      MINIO_SERVER_URL: "https://172.17.19.252"
+      MINIO_BROWSER_REDIRECT_URL: "https://172.17.19.252/console"
+    volumes:
+      - /var/www/minio/minio_data:/data
+    command: server /data --console-address ":9001"

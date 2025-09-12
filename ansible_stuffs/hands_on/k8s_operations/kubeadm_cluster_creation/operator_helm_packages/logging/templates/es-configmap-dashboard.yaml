@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-cm-data
+  namespace: {{.Values.namespace}}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+data:
+  delete-older-data-elasticsearch.sh: |
+    #!bin/bash
+
+    curl -k -X POST "http://${ES_USERNAME}:${ES_PASSWORD}@${ES_HOST}:9200/kube_containers/_delete_by_query?pretty" \
+    -H 'Content-Type: application/json' \
+    -d'
+    {
+    "query": {
+        "bool": {
+        "filter": [
+            {
+            "range": {
+                "@timestamp": {
+                "lt": "now-'${ES_RETENTION_PERIOD}'d"
+                }
+            }
+            }
+        ]
+        }
+    }
+    }
+    '

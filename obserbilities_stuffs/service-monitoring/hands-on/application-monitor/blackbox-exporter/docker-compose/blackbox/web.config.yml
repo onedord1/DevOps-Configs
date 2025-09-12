@@ -1,0 +1,6 @@
+tls_server_config:
+  cert_file: /certs/server.crt
+  key_file: /certs/server.key
+
+basic_auth_users:
+  aesmonitor: "$2a$12$UBywtrX6x7wAQrxoyINGY.3rb8PNbPQATMSuRoYusnFNTX5bCvM1m" #bcrypt-tool hash "<your_pass>" 12

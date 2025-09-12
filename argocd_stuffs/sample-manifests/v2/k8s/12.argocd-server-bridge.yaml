@@ -1,0 +1,14 @@
+# prod-quickops/argocd-server-bridge.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  name: argocd-server-bridge
+  namespace: prod-quickops
+spec:
+  type: ExternalName
+  externalName: argocd-server.argocd.svc.cluster.local
+  ports:
+    - port: 443
+      targetPort: 443

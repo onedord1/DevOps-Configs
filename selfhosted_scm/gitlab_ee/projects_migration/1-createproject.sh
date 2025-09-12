@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Set these variables new gitlab credentials
+GITLAB_API_TOKEN="glpat-sR828cYep1NNShjSH6MB"
+GITLAB_API_URL="https://gitlab.cloudaes.com/api/v4"
+
+IFS=$'\n'
+for project in $(cat test-projects.txt); do
+    echo "=============================="
+    echo "Project: $project"
+
+    namespace=$(echo "$project" | cut -d'/' -f1)
+    name=$(echo "$project" | cut -d'/' -f2)
+
+    echo "Namespace: $namespace | Project name: $name"
+
+    # Get namespace ID
+    namespace_id=$(curl -sk --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+        "$GITLAB_API_URL/groups?search=$namespace" | jq -r \
+        '.[] | select(.full_path=="'"$namespace"'") | .id')
+
+    echo "Namespace ID: $namespace_id"
+    # If namespace doesn't exist, create it
+    if [ -z "$namespace_id" ]; then
+        echo "⚙️ Creating namespace '$namespace'..."
+        create_ns=$(curl -sk --request POST "$GITLAB_API_URL/groups" \
+            --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "{
+                \"name\": \"$namespace\",
+                \"path\": \"$namespace\",
+                \"visibility\": \"private\"
+            }")
+
+
+        echo "Create namespace response: $create_ns"
+
+        namespace_id=$(echo "$create_ns" | jq -r '.id')
+        if [ -z "$namespace_id" ] || [ "$namespace_id" == "null" ]; then
+            echo "❌ Failed to create namespace '$namespace'. Skipping..."
+            continue
+        fi
+        echo "✅ Created namespace '$namespace' with ID: $namespace_id"
+    fi
+
+    # Check if project already exists
+    exists=$(curl -sK --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+        "$GITLAB_API_URL/projects?search=$name" | jq -r \
+        '.[] | select(.path=="'"$name"'" and .namespace.id=='"$namespace_id"') | .id')
+    echo "Project exists: $exists"
+    if [ -z "$exists" ]; then
+        echo "🔧 Creating project '$name' in '$namespace'..."
+
+        # Correct: use http_response and extract both body and status
+        http_response=$(curl -sk --write-out "HTTPSTATUS:%{http_code}" \
+            --request POST "$GITLAB_API_URL/projects" \
+            --header "PRIVATE-TOKEN: $GITLAB_API_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "{
+                \"name\": \"$name\",
+                \"path\": \"$name\",
+                \"namespace_id\": $namespace_id,
+                \"visibility\": \"private\"
+            }")
+
+        response_body=$(echo "$http_response" | sed -e 's/HTTPSTATUS\:.*//g')
+        status_code=$(echo "$http_response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+
+        echo "Create project response: $response_body"
+        echo "Status code: $status_code"
+
+        if [ "$status_code" -eq 201 ]; then
+            echo "✅ Successfully created project '$project'"
+        else
+            echo "❌ Failed to create $project"
+            echo "Reason: $response_body"
+        fi
+    else
+        echo "✅ Project '$project' already exists"
+    fi
+
+    # Clone and push
+    echo "📥 Cloning from source GitLab..."
+    GIT_SSL_NO_VERIFY=true git clone --mirror "https://172.17.18.200/$project.git"
+    cd "$name.git" || { echo "❌ Failed to cd into $name.git"; continue; }
+
+    echo "📤 Pushing to new GitLab..."
+    git remote add new "https://root:$GITLAB_API_TOKEN@gitlab.cloudaes.com/$project.git"
+    git push --mirror new
+
+    cd ..
+    # Optional cleanup
+    rm -rf "$name.git"
+
+    echo "✅ Migration done for $project"
+    echo "------------------------------"
+done

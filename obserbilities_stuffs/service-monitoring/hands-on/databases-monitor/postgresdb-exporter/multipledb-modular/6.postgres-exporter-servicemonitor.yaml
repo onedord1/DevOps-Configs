@@ -1,0 +1,97 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgresdb-exporter
+  namespace: exporters
+  labels:
+    app: postgresdb-exporter
+    release: aescontroller-monitoring-operator
+spec:
+  selector:
+    matchLabels:
+      app: postgresdb-exporter
+  endpoints:
+  
+  # Endpoint for Corteza database (cortezado-prod-ucgx-ns)
+  - port: http
+    interval: 30s
+    path: /probe
+    scheme: http
+    params:
+      target:
+      - livedb-db-cluster.cortezado-prod-ucgx-ns.svc.cluster.local:5432/corteza?sslmode=disable
+      auth_module:
+      - corteza-db
+    metricRelabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: instance
+        replacement: livedb-db-cluster.cortezado-prod-ucgx-ns.svc.cluster.local:5432
+      - sourceLabels: [__param_target]
+        targetLabel: database
+        replacement: corteza
+      - sourceLabels: [__param_target]
+        targetLabel: namespace
+        replacement: cortezado-prod-ucgx-ns
+    relabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: __param_target
+      - targetLabel: __address__
+        replacement: postgresdb-exporter.exporters.svc.cluster.local:9187
+  
+  # Endpoint for Soringboot-Jorataliapp database (cortezado-prod-ucgx-ns)
+  - port: http
+    interval: 30s
+    path: /probe
+    scheme: http
+    params:
+      target:
+      - springbootdata-db-cluster.cortezado-prod-ucgx-ns.svc.cluster.local:5432/jorataliapp?sslmode=disable
+      auth_module:
+      - jorataliapp-db
+    metricRelabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: instance
+        replacement: springbootdata-db-cluster.cortezado-prod-ucgx-ns.svc.cluster.local:5432
+      - sourceLabels: [__param_target]
+        targetLabel: database
+        replacement: jorataliapp
+      - sourceLabels: [__param_target]
+        targetLabel: namespace
+        replacement: cortezado-prod-ucgx-ns
+    relabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: __param_target
+      - targetLabel: __address__
+        replacement: postgresdb-exporter.exporters.svc.cluster.local:9187
+  
+  # Endpoint for cortezadb cortezado-cement-gtsx-ns databases
+  - port: http
+    interval: 30s
+    path: /probe
+    scheme: http
+    params:
+      target:
+      - livedb-db-cluster.cortezado-cement-gtsx-ns.svc.cluster.local:5432/postgres?sslmode=disable
+      auth_module:
+      - cement-db
+    metricRelabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: instance
+        replacement: livedb-db-cluster.cortezado-cement-gtsx-ns.svc.cluster.local:5432
+      - sourceLabels: [__param_target]
+        targetLabel: database
+        replacement: cement-db
+      - sourceLabels: [__param_target]
+        targetLabel: namespace
+        replacement: cortezado-cement-gtsx-ns
+    relabelings:
+      - sourceLabels: [__param_target]
+        targetLabel: __param_target
+      - targetLabel: __address__
+        replacement: postgresdb-exporter.exporters.svc.cluster.local:9187
+  
+  #add as many as need 
+
+  namespaceSelector:
+    matchNames:
+    - exporters

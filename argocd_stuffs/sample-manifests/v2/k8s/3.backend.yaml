@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: quickopsbe-config
+  namespace: prod-quickops
+data:
+  spring_jpa_hibernate_ddl_auto: "update"
+  mysql_host: "mysql"
+  mysql_port: "3306"
+  mysql_db: "quickops"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: quickopsbe-secret
+  namespace: prod-quickops
+type: Opaque
+data:
+  spring-datasource-username: cXVpY2tvcHN1c2Vy                # base64 encoded "quickopsuser"
+  spring-datasource-password: c014QTlUdEZDNzU5eFlvbnE4VDk=    # base64 encoded "pass for quickopsuser"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: prod-quickops  
+  name: quickopsbe
+spec:
+  # replicas: 1
+  selector:
+    matchLabels:
+      app: quickopsbe
+  template:
+    metadata:
+      labels:
+        app: quickopsbe
+    spec:
+      imagePullSecrets:
+      - name: harbor-pull-secret
+      containers:
+      - name: quickopsbe
+        image: registry.cloudaes.com/quickops-be/quickopsprod-saas-be:prod-v1.0.0
+        ports:
+          - containerPort: 8083
+        env:
+          - name: SPRING_DATASOURCE_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: quickopsbe-secret
+                key: spring-datasource-username
+          - name: SPRING_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: quickopsbe-secret
+                key: spring-datasource-password
+          - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+            valueFrom:
+              configMapKeyRef:
+                name: quickopsbe-config
+                key: spring_jpa_hibernate_ddl_auto
+          - name: MYSQL_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: quickopsbe-config
+                key: mysql_host
+          - name: MYSQL_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: quickopsbe-config
+                key: mysql_port
+          - name: MYSQL_DB
+            valueFrom:
+              configMapKeyRef:
+                name: quickopsbe-config
+                key: mysql_db
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "300m"
+          limits:
+            memory: "3Gi"
+            cpu: "2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  namespace: prod-quickops  
+  name: quickopsbe-service
+spec:
+  selector:
+    app: quickopsbe
+  ports:
+    - protocol: TCP
+      port: 8083
+      targetPort: 8083
+  type: ClusterIP

@@ -1,0 +1,50 @@
+global:
+  cloud: others
+  clusterName: qaquickops-saas-portal
+  deploymentEnvironment: qa
+otelCollectorEndpoint: 172.17.17.252:4317
+otelInsecure: true
+presets:
+  otlpExporter:
+    enabled: true
+  hostMetrics:
+    enabled: true
+    collectionInterval: 30s
+  logsCollection:
+    enabled: true
+    blacklist:
+      enabled: true
+      namespaces: 
+        - kube-system
+        - aes-monitor
+        - cert-manager
+        - logging
+  kubeletMetrics:
+    enabled: true
+    insecureSkipVerify: true
+  kubernetesAttributes:
+    enabled: true
+    passthrough: false
+    extractMetadatas:
+      - k8s.namespace.name
+      - k8s.deployment.name
+      - k8s.pod.name
+      - k8s.node.name
+    podAssociation:
+      - sources:
+        - from: resource_attribute
+          name: k8s.pod.ip
+  clusterMetrics:
+    enabled: true
+    collectionInterval: 30s
+    nodeConditionsToReport:
+      - Ready
+      - MemoryPressure
+      - DiskPressure
+    allocatableTypesToReport:
+      - cpu
+      - memory
+      - storage
+  k8sEvents:
+    enabled: true
+

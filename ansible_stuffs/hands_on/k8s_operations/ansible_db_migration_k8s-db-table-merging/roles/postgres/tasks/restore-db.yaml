@@ -1,0 +1,72 @@
+- name: Restore PostgreSQL dump into target database
+  shell: |
+    PGPASSWORD='{{ source.password }}' pg_restore \
+      -h {{ target.host }} -p {{ target.port }} \
+      -U {{ target.user }} -d {{ target.name }} \
+        "{{ dump_file_source }}"
+  ignore_errors: true
+# ---
+# - name: Restore PostgreSQL dump into target database
+#   block:
+#     - name: Check if dump file exists
+#       ansible.builtin.stat:
+#         path: "{{ dump_file_source }}"
+#       register: dump_file_stat
+    
+#     - name: Fail if dump file doesn't exist
+#       ansible.builtin.fail:
+#         msg: "Dump file not found at {{ dump_file_source }}"
+#       when: not dump_file_stat.stat.exists
+    
+#     - name: Read dump file content
+#       ansible.builtin.slurp:
+#         src: "{{ dump_file_source }}"
+#       register: dump_file_content
+#       no_log: true
+    
+#     - name: Restore PostgreSQL database using community.postgresql.postgresql_db
+#       community.postgresql.postgresql_db:
+#         name: "{{ target.name }}"
+#         state: restore
+#         target: "{{ dump_file_source }}"
+#         login_host: "{{ target.host }}"
+#         login_port: "{{ target.port }}"
+#         login_user: "{{ target.user }}"
+#         login_password: "{{ target.password }}"
+#       no_log: false
+#       register: db_restore_result
+    
+#     - name: Show restore result
+#       ansible.builtin.debug:
+#         msg: "Database restore completed successfully"
+#       when: db_restore_result.changed
+#   rescue:
+#     - name: Show error details
+#       ansible.builtin.debug:
+#         msg: |
+#           PostgreSQL module restore failed.
+#           Error: {{ db_restore_result.msg | default('Unknown error') }}
+#           Trying alternative method...
+    
+#     - name: Fallback to shell command
+#       ansible.builtin.shell: |
+#         PGPASSWORD='{{ target.password }}' psql \
+#           -h {{ target.host }} -p {{ target.port }} \
+#           -U {{ target.user }} -d {{ target.name }} \
+#           -f "{{ dump_file_source }}"
+#       environment:
+#         PGPASSWORD: "{{ target.password }}"
+#       no_log: false
+#       register: shell_restore_result
+    
+#     - name: Check shell restore result
+#       ansible.builtin.debug:
+#         msg: |
+#           Shell restore exit code: {{ shell_restore_result.rc }}
+#           Error: {{ shell_restore_result.stderr }}
+#       when: shell_restore_result.rc != 0
+    
+#     - name: Fail if all methods failed
+#       ansible.builtin.fail:
+#         msg: "All database restore methods failed"
+#       when: shell_restore_result.rc != 0

@@ -1,0 +1,33 @@
+FROM openjdk:22 AS builder
+WORKDIR /app
+
+ENV MAVEN_OPTS="-Dmaven.wagon.http.ssl.insecure=true \
+-Dmaven.wagon.http.ssl.allowall=true \
+-Dmaven.wagon.http.ssl.ignore.validity.dates=true \
+-Dmaven.resolver.transport=wagon"
+
+COPY ./nexus-artifacthub/settings-docker.xml /root/.m2/settings.xml
+COPY . .
+
+ARG NEXUS_USER \ 
+    NEXUS_PASS
+
+RUN chmod +x mvnw && \
+./mvnw dependency:go-offline -s /root/.m2/settings.xml -Pdev && \
+./mvnw clean package -DskipTests -s /root/.m2/settings.xml -Pdev
+
+# #FROM ghcr.io/graalvm/jdk-community:22
+FROM openjdk:22
+WORKDIR /app
+RUN rm /etc/localtime && \
+    ln -s /usr/share/zoneinfo/Asia/Dhaka /etc/localtime
+COPY --from=builder /app/target/*.jar app.jar
+# RUN groupadd -g 1001 appgroup && \
+#     useradd -u 1001 -g appgroup -m appuser && \
+#     chown -R appuser:appgroup /app
+# RUN rm -f /bin/sh
+# USER appuser
+
+EXPOSE 8082 5583
+
+CMD ["java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5583", "-jar", "app.jar"]

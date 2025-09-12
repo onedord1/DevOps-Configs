@@ -1,0 +1,62 @@
+
+name: Goal-app-build-ECR-image-deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: 
+      - closed  ##commented
+    branches:
+      - main
+
+jobs:
+   build:
+      runs-on: ubuntu-latest 
+      #runs-on: ['self-hosted', 'Linux', 'X64'] (if you wish to run your self-hosted machine like EC2 or any other VMs)
+
+      steps:
+       - name: Checkout code
+         uses: actions/checkout@v3
+
+       - name: Set up Docker Buildx
+         uses: docker/setup-buildx-action@v2
+
+       - name: Log in to Amazon ECR
+         env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION: ${{ secrets.AWS_REGION }}
+            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+            GH_PAT: ${{ secrets.GH_PAT }}
+         run: |
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+
+       - name: Set Docker image tag
+         id: vars
+         run: echo "IMAGE_TAG=latest-${{ github.sha }}" >> $GITHUB_ENV
+
+       - name: Build Docker Image
+         run: |
+            docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/goal-app-frontend:${{ env.IMAGE_TAG }} .
+
+         # Push the Docker image to Amazon ECR
+       - name: Push Docker Image
+         run: |
+            docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/goal-app-frontend:${{ env.IMAGE_TAG }}
+
+         # Update the Kubernetes deployment YAML with the new image tag
+       - name: Update Kubernetes Deployment YAML
+         run: |
+            cat ./argocd_deployment/deployment.yaml
+            sed -i "s|image: .*goal-app-frontend:.*|image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/goal-app-frontend:${{ env.IMAGE_TAG }}|g" ./argocd_deployment/deployment.yaml
+            cat ./argocd_deployment/deployment.yaml
+         # Commit the updated YAML file back to the repository
+       - name: Commit updated Kubernetes YAML
+         run: |
+            git config --local user.name "<your_github_username>"
+            git config --local user.email "<your_github_email>"
+            git add ./argocd_deployment/deployment.yaml
+            git commit -m "Update image tag to ${{ env.IMAGE_TAG }}"
+            git push https://${{ secrets.GH_PAT }}@github.com/Abir-K/goal-frontend-with-jenkins

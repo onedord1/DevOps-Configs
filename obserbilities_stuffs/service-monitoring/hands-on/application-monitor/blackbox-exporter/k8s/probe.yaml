@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: app-liveness-probe
+  namespace: monitoring
+  labels:
+    release: aescontroller-monitoring-operator
+spec:
+  jobName: app-liveness
+  module: http_2xx
+  prober:
+    url: blackbox-exporter.monitoring.svc.cluster.local:9115
+    scheme: http
+  targets:
+    staticConfig:
+      static:
+        - http://my-app.<app-namespace>.svc.cluster.local:8080/healthz
+        - http://my-app.<app-namespace>.svc.cluster.local:8080/healthz
+      labels:
+        app: my-app
+        health: liveness
+  interval: 30s
+  scrapeTimeout: 10s

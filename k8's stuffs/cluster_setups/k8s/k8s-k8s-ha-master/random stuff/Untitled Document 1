@@ -1,0 +1,87 @@
+sudo kubeadm init --apiserver-advertise-address=172.17.17.71  --pod-network-cidr=192.168.210.0/24 --cri-socket /run/containerd/containerd.sock --ignore-preflight-errors Swap
+sudo kubeadm init --control-plane-endpoint="172.17.17.150:6443" --upload-certs --apiserver-advertise-address=172.17.17.151 --pod-network-cidr=192.168.123.0/16 --cri-socket /run/containerd/containerd.sock --ignore-preflight-errors Swap
+
+-----------------------------
+You can now join any number of the control-plane node running the following command on each as root:
+
+ sudo kubeadm join 172.17.17.150:6443 --token tmxwc4.kt3jlqg9uis70lhn --discovery-token-ca-cert-hash sha256:3f69d23d9dd1bbc33d98230b443d4d4a381072b465b21c4c3b311bbb257ecbad \
+	--control-plane --certificate-key e3988f2d4331502437d80d9e8007778b30ba2dc998dd163a490f29df731e634f --apiserver-advertise-address=172.17.17.152 --cri-socket /run/containerd/containerd.sock
+
+Please note that the certificate-key gives access to cluster sensitive data, keep it secret!
+As a safeguard, uploaded-certs will be deleted in two hours; If necessary, you can use
+"kubeadm init phase upload-certs --upload-certs" to reload certs afterward.
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 172.17.17.150:6443 --token inebvk.7vidln3nogb2xts9 \
+	--discovery-token-ca-cert-hash sha256:3f69d23d9dd1bbc33d98230b443d4d4a381072b465b21c4c3b311bbb257ecbad 
+
+
+kubeadm join 172.17.17.150:6443 --token hkzpuh.zx53umvc5e5kakhm \
+	--discovery-token-ca-cert-hash sha256:e1d380cfe30f6e4a2e1e8e60d173a488a054df3fcbec96e1af982ebb13da8767 \
+	--control-plane --certificate-key 10bf0800bdceb94199f1983b6371f77859a4e023e7dc009bdf832a31cc821df6 --cri-socket /run/containerd/containerd.sock
+	
+	
+	
+	
+	/home/master/.kube/config
+	
+	
+	
+	
+backend kubernetes-backend
+  option httpchk GET /healthz
+  http-check expect status 200
+  mode tcp
+  option ssl-hello-chk
+  balance roundrobin
+    server master-1 172.17.17.151:6443 check fall 3 rise 2
+    server master-2 172.17.17.152:6443 check fall 3 rise 2
+~                                                            
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc
+spec:
+  storageClassName: nfs-client
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+

@@ -1,0 +1,7 @@
+- name: Dump source MySQL DB
+  shell: >
+    mysqldump -h {{ target.host }} -P {{ target.port }}
+    -u {{ target.user }} -p'{{ target.password }}' {{ target.name }}
+    > "{{ dump_file }}"
+  args:
+    warn: false

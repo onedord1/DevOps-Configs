@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+  name: mysql-init-config
+  namespace: dev-quickops 
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS mail;
+    GRANT ALL PRIVILEGES ON mail.* TO 'quickopsuser'@'%';
+    FLUSH PRIVILEGES;
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  name: mysql
+  namespace: dev-quickops
+spec:
+  serviceName: "mysql"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      imagePullSecrets: 
+        - name: harbor-pull-secret  
+      containers:
+        - name: mysql
+          image: registry.cloudaes.com/quickops-db/mysql:8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: mysql-configmap
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_PASSWORD
+
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: init-sql-volume
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: init-sql-volume
+          configMap:
+            name: mysql-init-config
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: local-path
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  name: mysql
+  namespace: dev-quickops
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+  # clusterIP: None
+  selector:
+    app: mysql

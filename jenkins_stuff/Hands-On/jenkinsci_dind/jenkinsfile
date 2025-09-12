@@ -1,0 +1,64 @@
+pipeline {
+      environment {
+
+        DOCKER_POD = '''
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: docker
+            image: docker:19.03.6
+            command:
+            - cat
+            tty: true
+            env:
+            - name: DOCKER_HOST
+              value: "tcp://dind.default:2375"
+            - name: JENKINS_AGENT_WORKDIR
+              value: "/var/jenkins_home"
+        '''
+
+        // Git ..........................
+        GIT_REPO = "https://github.com/aesakif/ci_cd_demo.git"
+        GIT_BRANCH = "main"
+
+        //Docker
+        USER_NAME = "devopsaes"
+        APP_NAME = "imgname"
+        IMAGE_TAG = "$BUILD_NUMBER"
+        PASSWORD = "devopsPassword"
+      }
+      agent any
+      triggers {
+        GenericTrigger(
+        token: 'anytokenn',
+        )
+      }
+
+      stages {
+
+        stage("PUSH DOCKER IMAGES TO DOCKERHUB"){
+          agent { kubernetes label: 'docker', yaml: "${DOCKER_POD}" }
+          
+          steps{
+              
+            container('docker') {
+                
+                git branch: "${GIT_BRANCH}", url: "${GIT_REPO}"
+                
+                sh "docker build -t ${USER_NAME}/${APP_NAME}:${IMAGE_TAG} -t ${USER_NAME}/${APP_NAME}:latest . -f ./dockerfile"
+                
+                sh "sleep 1000"
+            
+                sh"echo ${PASSWORD} | docker login --username ${USER_NAME} --password-stdin"
+
+                sh"docker push ${USER_NAME}/${APP_NAME}:${IMAGE_TAG}"
+                sh"docker push ${USER_NAME}/${APP_NAME}:latest"
+                
+                sh"docker logout"
+            }
+
+          }
+        }
+      }
+    }

@@ -1,0 +1,9 @@
+FROM percona/percona-xtrabackup:8.0
+
+USER root
+
+RUN microdnf update -y
+RUN microdnf install nc
+RUN microdnf install hostname
+
+CMD ["/bin/bash"]

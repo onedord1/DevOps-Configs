@@ -1,0 +1,7 @@
+🚨 *{{ .Labels.alertname | toUpper }}* - {{ .Status | toUpper }}
+
+• *Instance:* {{ .Labels.instance }}
+• *Instance Name:* {{ .Labels.target_name }}
+• *Severity:* {{ .Labels.severity }}
+• *Summary:* {{ .Annotations.summary }}
+• *Started at:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}

@@ -1,0 +1,31 @@
+log_level = "warning"
+
+[[runners]]
+  name = "gitlab-runner-1"
+  url = "http://gitlab.aes-core.com"  # change to your GitLab instance URL
+  executor = "docker"
+  token = "glrt-t1_y1oH8MxyRMX3TjL-MUVQ"  # add your registration token here
+  limit = 0
+  [runners.docker]
+    tls_verify = false
+    image = "docker:latest"
+    privileged = true
+    disable_cache = false
+    volumes = ["/var/run/docker.sock:/var/run/docker.sock", "/cache"]
+  [runners.cache]
+    Insecure = false
+
+# [[runners]]
+#   name = "gitlab-runner-2"
+#   url = "http://gitlab.aes-core.com"  # change to your GitLab instance URL
+#   executor = "docker"
+#   token = "glrt-t1_y1oH8MxyasdasdX3TjL-MUssVQ"  # add your registration token here
+#   limit = 0
+#   [runners.docker]
+#     tls_verify = false
+#     image = "docker:latest"
+#     privileged = true
+#     disable_cache = false
+#     volumes = ["/var/run/docker.sock:/var/run/docker.sock", "/cache"]
+#   [runners.cache]
+#     Insecure = false

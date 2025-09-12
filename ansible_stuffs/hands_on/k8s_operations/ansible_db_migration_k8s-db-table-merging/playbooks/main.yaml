@@ -1,0 +1,134 @@
+---
+- hosts: local
+  gather_facts: false
+
+  vars:
+    ini_file: "{{ playbook_dir }}/../inventories/var.ini"
+    dump_dir: "{{ playbook_dir }}/../dumps"
+
+  tasks:
+
+    - name: Group flat variables into structured dicts
+      set_fact:
+        table_list: "{{ lookup('ansible.builtin.ini','TABLES', section='local:vars', file=ini_file).split(',') | map('trim') | select | list }}"
+        source:
+          host: "{{ FROM_DB_HOST }}"
+          port: "{{ FROM_DB_PORT | int }}"
+          user: "{{ FROM_DB_USER }}"
+          password: "{{ FROM_DB_PASSWORD }}"
+          name: "{{ FROM_DB_NAME }}"
+          namespace: "{{ source_namespace }}"
+          backend_deployment: "{{ source_backend_deployment }}"
+          kubeconfig: "{{ source_kubeconfig }}"
+        target:
+          host: "{{ TO_DB_HOST }}"
+          port: "{{ TO_DB_PORT | int }}"
+          user: "{{ TO_DB_USER }}"
+          password: "{{ TO_DB_PASSWORD }}"
+          name: "{{ TO_DB_NAME }}"
+          namespace: "{{ target_namespace }}"
+          backend_deployment: "{{ target_backend_deployment }}"
+          replica_count: "{{ target_replica_count | int }}"
+          kubeconfig: "{{ target_kubeconfig }}"
+        longhorn:
+          node: "{{ longhorn_node }}"
+          port: "{{ longhorn_port | int }}"
+        app:
+          health_url: "{{ app_health_url }}"
+      no_log: false
+
+    - name: Debug loaded variables
+      debug:
+        msg:
+          - "db_type = {{ db_type }}"
+          - "source host = {{ source.host }}, db name = {{ source.name }}"
+          - "target host = {{ target.host }}, db name = {{ target.name }}"
+
+    - name: Build dynamic dump filenames for source and target
+      set_fact:
+        dump_file_source: >-
+          {{ dump_dir ~ '/' ~ source.name ~ '_full_' ~
+            (source.host | regex_replace('\\.', '_')) ~
+            ('.dump' if db_type == 'postgres' else '.sql') }}
+        dump_file_target: >-
+          {{ dump_dir ~ '/' ~ target.name ~ '_full_' ~
+            (target.host | regex_replace('\\.', '_')) ~
+            ('.dump' if db_type == 'postgres' else '.sql') }}
+      when: db_type in ['postgres', 'mysql']
+
+
+    - name: Show dump filenames
+      debug:
+        msg:
+          source_dump: "{{ dump_file_source }}"
+          target_dump: "{{ dump_file_target }}"
+
+    # Step-1:Optional
+    # - include_role:
+    #     name: ../roles/common-scale
+    #     tasks_from: replica-down
+    #   vars:
+    #     kubeconfig: "{{ source.kubeconfig }}"
+    #     namespace: "{{ source.namespace }}"
+    #     deployment: "{{ source.backend_deployment }}"
+
+    #Step-2: Backup source DB Tables
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/backup-source-tables.yaml"
+      vars:
+        ini_file_path: "{{ ini_file }}"
+        dump_dir_path: "{{ dump_dir }}" 
+        dump_file_source: "{{ dump_file_source }}"
+
+    #Step3: Scale up the source deployment
+    # - include_role:
+    #     name: ../roles/common-scale
+    #     tasks_from: replica-up
+    #   vars:
+    #     kubeconfig: "{{ source.kubeconfig }}"
+    #     namespace: "{{ source.namespace }}"
+    #     deployment: "{{ source.backend_deployment }}"
+    #     replicas: "{{ source.replica_count }}"
+
+    # #Step4: Scale Down Target Backend Deployment 
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-down
+      vars:
+        kubeconfig: "{{ target.kubeconfig }}"
+        namespace: "{{ target.namespace }}"
+        deployment: "{{ target.backend_deployment }}"
+    
+    # #Step5: Longorn Node Storage Check
+    # - include_role:
+    #     name: ../roles/longhorn-storage-check
+    #     tasks_from: storage-availability
+
+    # #Step6: Backup Target DB for safety
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/create-target-db-dump.yaml"
+
+    # # - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/clean-target-db.yaml"
+
+    #Step7: Restore/Merge Source DB Tables to Target DB
+    - include_tasks: "{{ playbook_dir }}/../roles/{{ db_type }}/tasks/restore-source-tables-into-target.yaml"
+      vars:
+        ini_file_path: "{{ ini_file }}"
+        dump_dir_path: "{{ dump_dir }}"
+
+    #Step8: Scale up the target deployment
+    - include_role:
+        name: ../roles/common-scale
+        tasks_from: replica-up
+      vars:
+        kubeconfig: "{{ target.kubeconfig }}"
+        namespace: "{{ target.namespace }}"
+        deployment: "{{ target.backend_deployment }}"
+        replicas: "{{ target.replica_count }}"
+
+    - name: Target Application health check
+      uri:
+        url: "{{ app.health_url }}"
+        status_code: 200
+      register: health
+      until: health.status == 200
+      retries: 5
+      delay: 10
