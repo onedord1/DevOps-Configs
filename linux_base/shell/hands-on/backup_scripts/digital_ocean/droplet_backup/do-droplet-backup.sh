@@ -1,5 +1,5 @@
 #!/bin/bash
-WEBHOOK_URL="https://chat.googleapis.com/v1/spaces/AAQAYiAD2sU/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=fjcFGOyBD9uZlMMa1MfkUWEsS5C1onf3HfCVQivpMSQ"
+WEBHOOK_URL="https://chat.googleapis.com/v1/spaces/AAQAYiAD2sU/messages?key=ASyDd0ZtySjMm-fRq3CPsHI&token=fjcFGOyuZlMMa1Ms1onfCVQivpMSQ"
 DATE=$(LC_TIME=en_US.UTF-8 date +%d-%b-%Y)
 TAG="backup"
 DROPLET_IDS=$(doctl compute droplet list --tag-name "$TAG" | awk 'NR>1 {print $1}')

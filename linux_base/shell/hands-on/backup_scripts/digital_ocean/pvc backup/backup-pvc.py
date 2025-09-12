@@ -4,9 +4,9 @@ from pydo import Client
 import requests
 
 region = "sgp1"
-client = Client(token="dop_v1_3b909244b89703fd0a4c99fb512fbf65fb46e23bdd501c85d05b7a1e945c230b") 
+client = Client(token="dop_v1_3b92703fd0a4fbfbf65fb2b1c85bc230b") 
 current_date = datetime.now().strftime("%Y-%m-%d")
-webhook_url="https://chat.googleapis.com/v1/spaces/AAQAYiAD2sU/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=fjcFGOyBD9uZlMMa1MfkUWEsS5C1onf3HfCVQivpMSQ"
+webhook_url="https://chat.googleapis.com/v1/spaces/AAQAYiAD2sU/messages?key=AIzaSyDdI0E6vySjMm-WEzqKqqsHI&token=fjcFGOyBD9uZlMMfkovpMSQ"
 def snapshot_volumes():
     try:
         volumes = client.volumes.list(region=region)["volumes"]
