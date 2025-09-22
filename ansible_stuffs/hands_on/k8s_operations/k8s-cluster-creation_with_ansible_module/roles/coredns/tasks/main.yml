@@ -1,0 +1,63 @@
+---
+- name: Check CoreDNS deployment
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: coredns
+    namespace: kube-system
+  register: coredns_deployment
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS ServiceAccount
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-serviceaccount.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS ClusterRole
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-clusterrole.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS ClusterRoleBinding
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-clusterrolebinding.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-configmap.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-deployment.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-service.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create CoreDNS Horizontal Pod Autoscaler
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'coredns-hpa.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Wait for CoreDNS to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: coredns
+    namespace: kube-system
+  register: coredns_status
+  delegate_to: "{{ groups['masters'][0] }}"
+  until: coredns_status.resources[0].status.readyReplicas == coredns_replicas
+  retries: 30
+  delay: 10

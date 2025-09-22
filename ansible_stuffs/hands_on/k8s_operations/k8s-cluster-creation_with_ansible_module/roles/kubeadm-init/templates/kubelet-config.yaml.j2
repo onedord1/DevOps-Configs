@@ -1,0 +1,41 @@
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    enabled: true
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+authorization:
+  mode: Webhook
+cgroupDriver: systemd
+clusterDNS:
+- {{ service_network_cidr | ipaddr('net') | ipaddr(10) | ipaddr('address') }}
+clusterDomain: {{ dns_domain }}
+containerRuntimeEndpoint: unix:///var/run/containerd/containerd.sock
+cpuManagerPolicy: none
+evictionHard:
+  imagefs.available: 15%
+  memory.available: 100Mi
+  nodefs.available: 10%
+  nodefs.inodesFree: 5%
+evictionPressureTransitionPeriod: 5m0s
+failSwapOn: {{ kubelet_fail_swap_on }}
+featureGates:
+  RotateKubeletServerCertificate: true
+maxOpenFiles: 1000000
+maxPods: 110
+rotateCertificates: true
+runtimeRequestTimeout: 15m
+serverTLSBootstrap: true
+tlsCipherSuites:
+- TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+- TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+- TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+- TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+- TLS_RSA_WITH_AES_256_GCM_SHA384
+- TLS_RSA_WITH_AES_128_GCM_SHA256
+volumePluginDir: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/

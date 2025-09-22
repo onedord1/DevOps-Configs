@@ -1,0 +1,11 @@
+---
+- name: Configure etcd
+  hosts: masters
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/masters/main.yml
+  
+  roles:
+    - etcd

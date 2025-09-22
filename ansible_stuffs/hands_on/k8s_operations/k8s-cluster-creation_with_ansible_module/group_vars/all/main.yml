@@ -1,0 +1,113 @@
+---
+# Kubernetes Cluster Configuration
+kubernetes_version: "1.28.0"
+container_runtime: "containerd"
+cni_plugin: "calico"
+
+# Network Configuration
+pod_network_cidr: "192.168.0.0/16"
+service_network_cidr: "10.96.0.0/12"
+dns_domain: "cluster.local"
+
+# etcd Configuration
+etcd_data_dir: "/var/lib/etcd"
+etcd_peer_port: 2380
+etcd_client_port: 2379
+
+# MetalLB Configuration
+metallb_version: "v0.13.12"
+metallb_ip_range: "192.168.1.100-192.168.1.200"
+metallb_protocol: "layer2"
+
+# Calico Configuration
+calico_version: "v3.26.1"
+calico_network_mode: "calico"
+calico_ipip_mode: "Always"
+calico_nat_outgoing: true
+calico_felix_defaultloglevel: "info"
+
+# CoreDNS Configuration
+coredns_version: "1.11.1"
+coredns_replicas: 3
+coredns_image: "registry.k8s.io/coredns/coredns"
+
+# Production-Grade Resource Limits for High Traffic
+# Control Plane Components - High Traffic Scenario
+
+# kube-apiserver (Handles all API requests)
+kube_apiserver_cpu_requests: "1000m"      # 1 CPU core
+kube_apiserver_memory_requests: "2Gi"     # 2GB memory
+kube_apiserver_cpu_limits: "4000m"        # 4 CPU cores (burst capacity)
+kube_apiserver_memory_limits: "8Gi"       # 8GB memory (burst capacity)
+
+# kube-controller-manager (Manages controllers)
+kube_controller_manager_cpu_requests: "500m"   # 0.5 CPU core
+kube_controller_manager_memory_requests: "1Gi"  # 1GB memory
+kube_controller_manager_cpu_limits: "2000m"     # 2 CPU cores
+kube_controller_manager_memory_limits: "4Gi"    # 4GB memory
+
+# kube-scheduler (Pod scheduling)
+kube_scheduler_cpu_requests: "500m"      # 0.5 CPU core
+kube_scheduler_memory_requests: "512Mi"  # 512MB memory
+kube_scheduler_cpu_limits: "2000m"        # 2 CPU cores
+kube_scheduler_memory_limits: "2Gi"       # 2GB memory
+
+# etcd (Distributed key-value store - CRITICAL for performance)
+etcd_cpu_requests: "1000m"               # 1 CPU core
+etcd_memory_requests: "2Gi"              # 2GB memory
+etcd_cpu_limits: "4000m"                 # 4 CPU cores
+etcd_memory_limits: "8Gi"                # 8GB memory
+etcd_quota_backend_bytes: "8589934592"   # 8GB storage limit
+
+# CoreDNS (Service discovery - High traffic scenarios)
+coredns_cpu_requests: "500m"             # 0.5 CPU core per replica
+coredns_memory_requests: "512Mi"         # 512MB memory per replica
+coredns_cpu_limits: "2000m"              # 2 CPU cores per replica
+coredns_memory_limits: "2Gi"             # 2GB memory per replica
+
+# kube-proxy (Network proxy)
+kube_proxy_cpu_requests: "500m"          # 0.5 CPU core
+kube_proxy_memory_requests: "256Mi"       # 256MB memory
+kube_proxy_cpu_limits: "1000m"           # 1 CPU core
+kube_proxy_memory_limits: "512Mi"        # 512MB memory
+
+# Worker Node Components
+kubelet_cpu_requests: "500m"             # 0.5 CPU core
+kubelet_memory_requests: "256Mi"         # 256MB memory
+kubelet_cpu_limits: "1000m"               # 1 CPU core
+kubelet_memory_limits: "512Mi"            # 512MB memory
+
+# Calico Components (CNI)
+calico_node_cpu_requests: "250m"         # 0.25 CPU core
+calico_node_memory_requests: "256Mi"     # 256MB memory
+calico_node_cpu_limits: "1000m"          # 1 CPU core
+calico_node_memory_limits: "1Gi"         # 1GB memory
+
+# MetalLB Components (Load Balancer)
+metallb_speaker_cpu_requests: "200m"     # 0.2 CPU core
+metallb_speaker_memory_requests: "128Mi"  # 128MB memory
+metallb_speaker_cpu_limits: "500m"       # 0.5 CPU core
+metallb_speaker_memory_limits: "512Mi"   # 512MB memory
+metallb_controller_cpu_requests: "200m"  # 0.2 CPU core
+metallb_controller_memory_requests: "128Mi" # 128MB memory
+metallb_controller_cpu_limits: "500m"    # 0.5 CPU core
+metallb_controller_memory_limits: "512Mi" # 512MB memory
+
+# Security Configuration
+kubelet_cgroup_driver: "systemd"
+kubelet_systemd_cgroup: true
+kubelet_fail_swap_on: false
+
+# Cluster Features
+enable_metrics_server: true
+enable_dashboard: false
+enable_ingress_controller: true
+
+# System Configuration
+timezone: "UTC"
+ntp_server: "pool.ntp.org"
+
+# Package Versions
+docker_apt_repo: "https://download.docker.com/linux/ubuntu"
+kubernetes_apt_repo: "https://apt.kubernetes.io/"
+containerd_version: "1.7.0"

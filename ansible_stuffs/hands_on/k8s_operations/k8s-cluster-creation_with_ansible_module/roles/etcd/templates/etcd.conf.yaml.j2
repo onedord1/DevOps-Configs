@@ -1,0 +1,42 @@
+name: {{ inventory_hostname }}
+data-dir: {{ etcd_data_dir }}
+initial-cluster-token: etcd-cluster-0
+initial-cluster: {{ etcd_initial_cluster }}
+initial-cluster-state: new
+
+# Production performance settings
+listen-peer-urls: https://{{ ansible_host }}:{{ etcd_peer_port }}
+listen-client-urls: https://{{ ansible_host }}:{{ etcd_client_port }},http://127.0.0.1:{{ etcd_client_port }}
+advertise-client-urls: https://{{ ansible_host }}:{{ etcd_client_port }}
+initial-advertise-peer-urls: https://{{ ansible_host }}:{{ etcd_peer_port }}
+
+# Security settings
+client-cert-auth: true
+peer-client-cert-auth: true
+trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+peer-trusted-ca-file: /etc/kubernetes/pki/etcd/ca.crt
+cert-file: /etc/kubernetes/pki/etcd/server.crt
+key-file: /etc/kubernetes/pki/etcd/server.key
+peer-cert-file: /etc/kubernetes/pki/etcd/server.crt
+peer-key-file: /etc/kubernetes/pki/etcd/server.key
+
+# Production performance tuning
+heartbeat-interval: 100
+election-timeout: 1000
+max-snapshots: 5
+max-wals: 5
+snapshot-count: 10000
+
+# Memory and storage settings
+quota-backend-bytes: {{ etcd_quota_backend_bytes }}
+auto-compaction-retention: "1"
+auto-compaction-mode: periodic
+
+# Logging settings
+logger: zap
+log-outputs: [stderr]
+log-level: info
+
+# Performance settings for high traffic
+max-request-bytes: 15728640  # 15MB
+max-txn-ops: 5000

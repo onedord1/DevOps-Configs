@@ -1,0 +1,46 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ ansible_host }}"
+  bindPort: 6443
+nodeRegistration:
+  criSocket: unix:///var/run/containerd/containerd.sock
+  kubeletExtraArgs:
+    cgroup-driver: systemd
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: {{ kubernetes_version }}
+controlPlaneEndpoint: "{{ control_plane_endpoint }}:6443"
+etcd:
+  external:
+    endpoints:
+    {% for master in groups['masters'] %}
+    - https://{{ hostvars[master].ansible_host }}:{{ etcd_client_port }}
+    {% endfor %}
+    caFile: /etc/kubernetes/pki/etcd/ca.crt
+    certFile: /etc/kubernetes/pki/etcd/server.crt
+    keyFile: /etc/kubernetes/pki/etcd/server.key
+networking:
+  podSubnet: "{{ pod_network_cidr }}"
+  serviceSubnet: "{{ service_network_cidr }}"
+  dnsDomain: "{{ dns_domain }}"
+apiServer:
+  extraArgs:
+    service-node-port-range: "30000-32767"
+  certSANs:
+  - "127.0.0.1"
+  - "{{ ansible_host }}"
+  - "{{ control_plane_endpoint }}"
+  {% for san in kube_apiserver_cert_extra_sans %}
+  - "{{ san }}"
+  {% endfor %}
+controllerManager:
+  extraArgs:
+    node-cidr-mask-size: "24"
+scheduler:
+  extraArgs: {}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd

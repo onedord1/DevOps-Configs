@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: speaker
+  namespace: metallb-system
+  labels:
+    app: metallb
+    component: speaker
+spec:
+  selector:
+    matchLabels:
+      app: metallb
+      component: speaker
+  template:
+    metadata:
+      labels:
+        app: metallb
+        component: speaker
+    spec:
+      serviceAccountName: speaker
+      terminationGracePeriodSeconds: 0
+      hostNetwork: true
+      containers:
+      - name: speaker
+        image: quay.io/metallb/speaker:{{ metallb_version }}
+        env:
+        - name: METALLB_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: METALLB_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: METALLB_ML_BIND_ADDR
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        args:
+        - --port=7472
+        - --config=config
+        ports:
+        - name: monitoring
+          containerPort: 7472
+        resources:
+          requests:
+            cpu: "{{ metallb_speaker_cpu_requests }}"
+            memory: "{{ metallb_speaker_memory_requests }}"
+          limits:
+            cpu: "{{ metallb_speaker_cpu_limits }}"
+            memory: "{{ metallb_speaker_memory_limits }}"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_ADMIN
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: metallb-system
+  labels:
+    app: metallb
+    component: controller
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: metallb
+      component: controller
+  template:
+    metadata:
+      labels:
+        app: metallb
+        component: controller
+    spec:
+      serviceAccountName: controller
+      terminationGracePeriodSeconds: 0
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+      - name: controller
+        image: quay.io/metallb/controller:{{ metallb_version }}
+        args:
+        - --port=7472
+        - --config=config
+        ports:
+        - name: monitoring
+          containerPort: 7472
+        resources:
+          requests:
+            cpu: "{{ metallb_controller_cpu_requests }}"
+            memory: "{{ metallb_controller_memory_requests }}"
+          limits:
+            cpu: "{{ metallb_controller_cpu_limits }}"
+            memory: "{{ metallb_controller_memory_limits }}"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-service
+  namespace: metallb-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    component: controller

@@ -1,0 +1,106 @@
+---
+- name: Create etcd data directory with proper permissions
+  file:
+    path: "{{ etcd_data_dir }}"
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+  become: yes
+  when: etcd_cluster
+
+- name: Configure etcd production settings
+  block:
+    - name: Create etcd configuration directory
+      file:
+        path: /etc/etcd
+        state: directory
+        mode: '0700'
+      become: yes
+
+    - name: Create etcd configuration file
+      template:
+        src: etcd.conf.yaml.j2
+        dest: /etc/etcd/etcd.conf.yaml
+        mode: '0600'
+      become: yes
+
+    - name: Generate production-grade etcd certificates
+      block:
+        - name: Create etcd certificate directory
+          file:
+            path: /etc/kubernetes/pki/etcd
+            state: directory
+            mode: '0700'
+          become: yes
+
+        - name: Generate etcd CA with stronger encryption
+          command: >
+            openssl genrsa -out /etc/kubernetes/pki/etcd/ca.key 4096
+          become: yes
+
+        - name: Generate etcd CA certificate with longer validity
+          command: >
+            openssl req -x509 -new -nodes -key /etc/kubernetes/pki/etcd/ca.key
+            -days 3650 -out /etc/kubernetes/pki/etcd/ca.crt -subj "/CN=etcd-ca"
+          become: yes
+
+        - name: Generate etcd server key with stronger encryption
+          command: >
+            openssl genrsa -out /etc/kubernetes/pki/etcd/server.key 4096
+          become: yes
+
+        - name: Generate etcd server certificate
+          command: >
+            openssl req -new -key /etc/kubernetes/pki/etcd/server.key
+            -out /etc/kubernetes/pki/etcd/server.csr -subj "/CN={{ ansible_host }}"
+          become: yes
+
+        - name: Sign etcd server certificate
+          command: >
+            openssl x509 -req -in /etc/kubernetes/pki/etcd/server.csr
+            -CA /etc/kubernetes/pki/etcd/ca.crt -CAkey /etc/kubernetes/pki/etcd/ca.key
+            -CAcreateserial -out /etc/kubernetes/pki/etcd/server.crt -days 1825
+          become: yes
+      when: etcd_cluster
+
+- name: Configure etcd systemd service with production settings
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+    mode: '0644'
+  become: yes
+  when: etcd_cluster
+
+- name: Configure systemd limits for etcd
+  copy:
+    content: |
+      [Service]
+      LimitNOFILE=1048576
+      LimitNPROC=1048576
+      LimitMEMLOCK=infinity
+    dest: /etc/systemd/system/etcd.service.d/limits.conf
+  become: yes
+  when: etcd_cluster
+
+- name: Enable and start etcd service
+  systemd:
+    name: etcd
+    enabled: yes
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  when: etcd_cluster
+
+- name: Wait for etcd cluster health with production timeout
+  command: >
+    etcdctl --endpoints=https://127.0.0.1:{{ etcd_client_port }}
+    --cacert=/etc/kubernetes/pki/etcd/ca.crt
+    --cert=/etc/kubernetes/pki/etcd/server.crt
+    --key=/etc/kubernetes/pki/etcd/server.key
+    endpoint health
+  register: etcd_health
+  until: etcd_health.rc == 0
+  retries: 60  # Increased retries for production
+  delay: 10
+  when: etcd_cluster

@@ -1,0 +1,9 @@
+apiVersion: crd.projectcalico.org/v1
+kind: FelixConfiguration
+metadata:
+  name: default
+spec:
+  bpfLogLevel: ""
+  ipipEnabled: true
+  natOutgoing: {{ calico_nat_outgoing }}
+  defaultLoglevel: {{ calico_felix_defaultloglevel }}

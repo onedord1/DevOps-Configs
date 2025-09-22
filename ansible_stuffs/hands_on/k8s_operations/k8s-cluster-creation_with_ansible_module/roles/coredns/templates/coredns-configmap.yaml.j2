@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        # High traffic optimization
+        cache {
+          success 3600
+          denial 300
+          prefetch 100
+        }
+        kubernetes {{ dns_domain }} in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+            # High traffic optimization
+            upstream /etc/resolv.conf
+            transfer *
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+            max_concurrent 10000  # Increased from default 1000
+            prefer_udp
+        }
+        loop
+        reload
+        loadbalance
+        # High traffic optimization
+        autopath @kubernetes
+    }

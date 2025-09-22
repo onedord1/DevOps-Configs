@@ -1,0 +1,80 @@
+---
+- name: Setup Kubernetes Cluster
+  hosts: cluster
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - common
+
+- name: Initialize Kubernetes Cluster
+  hosts: masters
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/masters/main.yml
+  
+  roles:
+    - kubeadm-init
+    - etcd
+
+- name: Install Calico CNI
+  hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - calico-cni
+
+- name: Configure CoreDNS
+  hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - coredns
+
+- name: Install MetalLB
+  hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - metallb
+
+- name: Join worker nodes
+  hosts: workers
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/workers/main.yml
+  
+  tasks:
+    - name: Check if node is already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Join worker to cluster
+      command: "{{ hostvars[groups['masters'][0]]['worker_join_command'] }}"
+      when: not kubelet_conf.stat.exists
+
+- name: Fetch kubeconfig
+  hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - kubeconfig-fetch

@@ -1,0 +1,50 @@
+---
+- name: Check if Calico is already installed
+  kubernetes.core.k8s_info:
+    api_version: operator.tigera.io/v1
+    kind: Installation
+    name: default
+  register: calico_installation
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create Calico namespace
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'calico-namespace.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: calico_installation.resources | length == 0
+
+- name: Install Calico operator
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'calico-operator.yaml.j2') | from_yaml_all }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: calico_installation.resources | length == 0
+
+- name: Install Calico custom resources
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'calico-installation.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: calico_installation.resources | length == 0
+
+- name: Configure Calico Felix
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'calico-felix-config.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: calico_installation.resources | length == 0
+
+- name: Wait for Calico pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: kube-system
+    label_selectors:
+      - "k8s-app=calico-node"
+  register: calico_pods
+  delegate_to: "{{ groups['masters'][0] }}"
+  until: calico_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == calico_pods.resources | length
+  retries: 30
+  delay: 10
+  when: calico_installation.resources | length == 0

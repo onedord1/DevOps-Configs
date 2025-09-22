@@ -1,0 +1,60 @@
+---
+- name: Check if MetalLB is installed
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: metallbservers.metallb.io
+  register: metallb_crd
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create MetalLB namespace
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-namespace.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: metallb_crd.resources | length == 0
+
+- name: Create MetalLB RBAC
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-rbac.yaml.j2') | from_yaml_all }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: metallb_crd.resources | length == 0
+
+- name: Create MetalLB Deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-deployment.yaml.j2') | from_yaml_all }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: metallb_crd.resources | length == 0
+
+- name: Create MetalLB ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-configmap.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create MetalLB IPAddressPool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-ipaddresspool.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Create MetalLB L2Advertisement
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'metallb-l2advertisement.yaml.j2') | from_yaml }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Wait for MetalLB pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: metallb-system
+    label_selectors:
+      - "app=metallb"
+  register: metallb_pods
+  delegate_to: "{{ groups['masters'][0] }}"
+  until: metallb_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == metallb_pods.resources | length
+  retries: 30
+  delay: 10

@@ -1,0 +1,36 @@
+---
+# Master Node Configuration
+kubernetes_role: "master"
+etcd_cluster: true
+
+# High Availability Configuration
+control_plane_endpoint: "192.168.1.100"
+keepalived_virtual_ip: "192.168.1.100"
+keepalived_interface: "eth0"
+
+# kubeadm Configuration
+kubeadm_init_extra_args: ""
+kubeadm_join_extra_args: ""
+
+# etcd Configuration for Masters
+etcd_initial_cluster: >
+  master1=https://192.168.1.10:2380,
+  master2=https://192.168.1.11:2380,
+  master3=https://192.168.1.12:2380
+
+# Resource Limits
+kube_apiserver_cpu_requests: "1000m"
+kube_apiserver_memory_requests: "2Gi"
+kube_apiserver_cpu_limits: "4000m"
+kube_apiserver_memory_limits: "8Gi"
+kube_controller_manager_cpu_requests: "500m"
+kube_controller_manager_memory_requests: "1Gi"
+kube_scheduler_cpu_requests: "500m"
+kube_scheduler_memory_requests: "512Mi"
+etcd_cpu_requests: "1000m"
+etcd_memory_requests: "2Gi"
+
+# Security
+kube_apiserver_cert_extra_sans:
+  - "192.168.1.100"
+  - "k8s-api.example.com"

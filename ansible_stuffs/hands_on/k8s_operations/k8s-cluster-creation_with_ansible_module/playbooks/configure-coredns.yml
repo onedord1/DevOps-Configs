@@ -1,0 +1,10 @@
+---
+- name: Configure CoreDNS
+  hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - coredns

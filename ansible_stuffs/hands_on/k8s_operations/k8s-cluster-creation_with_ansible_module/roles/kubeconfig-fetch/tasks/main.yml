@@ -1,0 +1,32 @@
+---
+- name: Create local kubeconfig directory
+  file:
+    path: ./files/kubeconfig
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+
+- name: Fetch kubeconfig from master
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: ./files/kubeconfig/config
+    flat: yes
+  become: yes
+  delegate_to: "{{ groups['masters'][0] }}"
+  run_once: true
+
+- name: Update kubeconfig with correct server address
+  replace:
+    path: ./files/kubeconfig/config
+    regexp: 'server: https://127.0.0.1:6443'
+    replace: 'server: https://{{ control_plane_endpoint }}:6443'
+  delegate_to: localhost
+  run_once: true
+
+- name: Set correct permissions on kubeconfig
+  file:
+    path: ./files/kubeconfig/config
+    mode: '0600'
+  delegate_to: localhost
+  run_once: true
