@@ -40,6 +40,13 @@
     name: "{{ timezone }}"
   become: yes
 
+- name: Load br_netfilter module
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+    persistent: present
+  become: yes
+
 - name: Configure sysctl for Kubernetes
   sysctl:
     name: "{{ item.name }}"
@@ -107,28 +114,56 @@
     state: restarted
   become: yes
 
-- name: Add Kubernetes apt repository key
-  apt_key:
-    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[0] }}-{{ kubernetes_version.split('.')[1] }}/deb/Release.key
-    state: present
+- name: Create directory for apt keyring
+  file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Download Kubernetes apt repository key
+  get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/Release.key"
+    dest: /tmp/kubernetes-release.key
+  become: yes
+
+- name: Convert Kubernetes apt key to gpg format
+  shell: gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg /tmp/kubernetes-release.key
+  args:
+    creates: /usr/share/keyrings/kubernetes-apt-keyring.gpg
   become: yes
 
 - name: Add Kubernetes apt repository
   apt_repository:
-    repo: "deb https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version.split('.')[0] }}-{{ kubernetes_version.split('.')[1] }}/deb/ /"
+    repo: "deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/ /"
     state: present
     filename: kubernetes
   become: yes
 
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: yes
+
+
 - name: Install Kubernetes packages
   apt:
     name:
-      - "kubelet={{ kubernetes_version }}-00"
-      - "kubeadm={{ kubernetes_version }}-00"
-      - "kubectl={{ kubernetes_version }}-00"
+      - "kubelet={{ kubelet_version.stdout }}"
+      - "kubeadm={{ kubelet_version.stdout }}"
+      - "kubectl={{ kubelet_version.stdout }}"
     state: present
-    hold: yes
   become: yes
+
+- name: Hold Kubernetes packages
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  become: yes
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
 
 - name: Enable kubelet
   systemd:
