@@ -1,0 +1,10 @@
+FROM quay.io/coreos/etcd:v{{ etcd_version }}
+
+# Copy replication script
+COPY etcd-replication.sh /usr/local/bin/etcd-replication.sh
+
+# Make script executable
+RUN chmod +x /usr/local/bin/etcd-replication.sh
+
+# Set command to run the replication script
+CMD ["/usr/local/bin/etcd-replication.sh"]

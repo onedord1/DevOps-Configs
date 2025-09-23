@@ -1,0 +1,15 @@
+services:
+  etcd-replication:
+    image: etcd-replication
+    container_name: etcd-replication-{{ inventory_hostname }}
+    restart: unless-stopped
+    volumes:
+      - /etc/kubernetes/pki/etcd:/etc/kubernetes/pki/etcd:ro
+    networks:
+      - etcd-network
+    depends_on:
+      - etcd
+
+networks:
+  etcd-network:
+    driver: bridge

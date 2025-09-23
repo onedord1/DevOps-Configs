@@ -10,7 +10,7 @@
     --control-plane-endpoint="{{ control_plane_endpoint }}"
     --pod-network-cidr="{{ pod_network_cidr }}"
     --service-cidr="{{ service_network_cidr }}"
-    --kubernetes-version="{{ kubernetes_version }}.0"
+    --kubernetes-version="{{ kubernetes_version }}"
     --upload-certs
     --apiserver-advertise-address="{{ ansible_host }}"
     --ignore-preflight-errors=Swap

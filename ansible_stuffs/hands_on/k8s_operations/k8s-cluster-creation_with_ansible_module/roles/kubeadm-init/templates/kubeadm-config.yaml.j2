@@ -12,15 +12,6 @@ apiVersion: kubeadm.k8s.io/v1beta3
 kind: ClusterConfiguration
 kubernetesVersion: {{ kubernetes_version }}
 controlPlaneEndpoint: "{{ control_plane_endpoint }}:6443"
-etcd:
-  external:
-    endpoints:
-    {% for master in groups['masters'] %}
-    - https://{{ hostvars[master].ansible_host }}:{{ etcd_client_port }}
-    {% endfor %}
-    caFile: /etc/kubernetes/pki/etcd/ca.crt
-    certFile: /etc/kubernetes/pki/etcd/server.crt
-    keyFile: /etc/kubernetes/pki/etcd/server.key
 networking:
   podSubnet: "{{ pod_network_cidr }}"
   serviceSubnet: "{{ service_network_cidr }}"

@@ -1,0 +1,22 @@
+---
+- name: Setup external etcd with Docker Compose
+  hosts: etcd_external
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/etcd_external/main.yml
+  
+  roles:
+    - etcd-external
+
+- name: Setup etcd replication
+  hosts: etcd_external
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/etcd_external/main.yml
+  
+  roles:
+    - etcd-replication

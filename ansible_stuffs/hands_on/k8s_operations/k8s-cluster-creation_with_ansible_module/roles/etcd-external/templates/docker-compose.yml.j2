@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v{{ etcd_version }}
+    container_name: etcd-{{ inventory_hostname }}
+    restart: unless-stopped
+    ports:
+      - "{{ etcd_client_port }}:2379"
+      - "{{ etcd_peer_port }}:2380"
+    volumes:
+      - {{ etcd_data_dir }}:/etcd-data
+      - /etc/kubernetes/pki/etcd:/etc/kubernetes/pki/etcd:ro
+    environment:
+      - ETCD_NAME={{ inventory_hostname }}
+      - ETCD_DATA_DIR=/etcd-data
+      - ETCD_LISTEN_PEER_URLS=https://0.0.0.0:2380
+      - ETCD_LISTEN_CLIENT_URLS=https://0.0.0.0:2379,http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=https://{{ ansible_host }}:{{ etcd_client_port }}
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=https://{{ ansible_host }}:{{ etcd_peer_port }}
+      - ETCD_INITIAL_CLUSTER={{ etcd_initial_cluster }}
+      - ETCD_INITIAL_CLUSTER_STATE=new
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster-0
+      - ETCD_CERT_FILE=/etc/kubernetes/pki/etcd/server.crt
+      - ETCD_KEY_FILE=/etc/kubernetes/pki/etcd/server.key
+      - ETCD_TRUSTED_CA_FILE=/etc/kubernetes/pki/etcd/etcd-ca.crt
+      - ETCD_CLIENT_CERT_AUTH=true
+      - ETCD_PEER_CERT_FILE=/etc/kubernetes/pki/etcd/server.crt
+      - ETCD_PEER_KEY_FILE=/etc/kubernetes/pki/etcd/server.key
+      - ETCD_PEER_TRUSTED_CA_FILE=/etc/kubernetes/pki/etcd/etcd-ca.crt
+      - ETCD_PEER_CLIENT_CERT_AUTH=true
+      - ETCD_HEARTBEAT_INTERVAL=100
+      - ETCD_ELECTION_TIMEOUT=1000
+      - ETCD_MAX_SNAPSHOTS=5
+      - ETCD_MAX_WALS=5
+      - ETCD_SNAPSHOT_COUNT=10000
+      - ETCD_QUOTA_BACKEND_BYTES={{ etcd_quota_backend_bytes }}
+      - ETCD_AUTO_COMPACTION_RETENTION=1
+      - ETCD_AUTO_COMPACTION_MODE=periodic
+      - ETCD_LOGGER=zap
+      - ETCD_LOG_OUTPUTS=stderr
+      - ETCD_LOG_LEVEL=info
+      - ETCD_MAX_REQUEST_BYTES=15728640
+      - ETCD_MAX_TXN_OPS=5000
+    networks:
+      - etcd-network
+
+networks:
+  etcd-network:
+    driver: bridge

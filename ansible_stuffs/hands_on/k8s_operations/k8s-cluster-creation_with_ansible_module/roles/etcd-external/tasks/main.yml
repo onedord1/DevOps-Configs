@@ -1,0 +1,156 @@
+---
+- name: Create etcd data directory with proper permissions
+  file:
+    path: "{{ etcd_data_dir }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+
+- name: Create etcd configuration directory
+  file:
+    path: /etc/etcd
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: yes
+
+- name: Install Docker and Docker Compose
+  block:
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+      become: yes
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      become: yes
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+      become: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+      become: yes
+
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      become: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+      become: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+      become: yes
+
+- name: Generate etcd certificates for external etcd
+  block:
+    - name: Create etcd certificate directory
+      file:
+        path: /etc/kubernetes/pki/etcd
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      become: yes
+
+    - name: Copy CA certificate from primary etcd
+      fetch:
+        src: /etc/kubernetes/pki/etcd/ca.crt
+        dest: /tmp/etcd-ca.crt
+        flat: yes
+      delegate_to: "{{ groups['masters'][0] }}"
+      become: yes
+
+    - name: Copy CA key from primary etcd
+      fetch:
+        src: /etc/kubernetes/pki/etcd/ca.key
+        dest: /tmp/etcd-ca.key
+        flat: yes
+      delegate_to: "{{ groups['masters'][0] }}"
+      become: yes
+
+    - name: Copy certificates to external etcd node
+      copy:
+        src: "/tmp/{{ item }}"
+        dest: "/etc/kubernetes/pki/etcd/{{ item }}"
+        mode: '0644'
+      become: yes
+      loop:
+        - etcd-ca.crt
+        - etcd-ca.key
+
+    - name: Generate etcd server key for external etcd
+      command: >
+        openssl genrsa -out /etc/kubernetes/pki/etcd/server.key 4096
+      become: yes
+
+    - name: Generate etcd server certificate for external etcd
+      command: >
+        openssl req -new -key /etc/kubernetes/pki/etcd/server.key
+        -out /etc/kubernetes/pki/etcd/server.csr -subj "/CN={{ ansible_host }}"
+      become: yes
+
+    - name: Sign etcd server certificate for external etcd
+      command: >
+        openssl x509 -req -in /etc/kubernetes/pki/etcd/server.csr
+        -CA /etc/kubernetes/pki/etcd/etcd-ca.crt
+        -CAkey /etc/kubernetes/pki/etcd/etcd-ca.key
+        -CAcreateserial -out /etc/kubernetes/pki/etcd/server.crt -days 1825
+      become: yes
+
+- name: Create Docker Compose configuration
+  template:
+    src: docker-compose.yml.j2
+    dest: /etc/etcd/docker-compose.yml
+    mode: '0644'
+  become: yes
+
+- name: Start etcd using Docker Compose
+  docker_compose:
+    project_src: /etc/etcd
+    state: present
+    restarted: yes
+  become: yes
+
+- name: Wait for etcd container to be ready
+  command: >
+    docker exec etcd-{{ inventory_hostname }} etcdctl --endpoints=https://127.0.0.1:2379
+    --cacert=/etc/kubernetes/pki/etcd/etcd-ca.crt
+    --cert=/etc/kubernetes/pki/etcd/server.crt
+    --key=/etc/kubernetes/pki/etcd/server.key
+    endpoint health
+  register: etcd_health
+  until: etcd_health.rc == 0
+  retries: 30
+  delay: 10
+  become: yes

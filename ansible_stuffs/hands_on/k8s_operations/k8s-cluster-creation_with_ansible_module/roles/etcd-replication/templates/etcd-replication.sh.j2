@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# etcd replication script for Docker container
+# This script continuously mirrors data from primary etcd to replica etcd
+
+PRIMARY_ENDPOINTS="https://{{ groups['masters'][0] }}:2379{% for master in groups['masters'][1:] %},https://{{ hostvars[master].ansible_host }}:2379{% endfor %}"
+REPLICA_ENDPOINT="https://etcd-{{ inventory_hostname }}:2379"
+CA_CERT="/etc/kubernetes/pki/etcd/etcd-ca.crt"
+CERT="/etc/kubernetes/pki/etcd/server.crt"
+KEY="/etc/kubernetes/pki/etcd/server.key"
+
+# Function to log messages
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+# Function to check if primary etcd is available
+check_primary() {
+    etcdctl --endpoints="$PRIMARY_ENDPOINTS" \
+           --cacert="$CA_CERT" \
+           --cert="$CERT" \
+           --key="$KEY" \
+           endpoint health > /dev/null 2>&1
+    return $?
+}
+
+# Function to check if replica etcd is available
+check_replica() {
+    etcdctl --endpoints="$REPLICA_ENDPOINT" \
+           --cacert="$CA_CERT" \
+           --cert="$CERT" \
+           --key="$KEY" \
+           endpoint health > /dev/null 2>&1
+    return $?
+}
+
+# Function to perform one-way sync
+sync_data() {
+    log_message "Starting sync from primary to replica"
+    
+    # Use etcdctl make-mirror for continuous replication
+    etcdctl --endpoints="$PRIMARY_ENDPOINTS" \
+           --cacert="$CA_CERT" \
+           --cert="$CERT" \
+           --key="$KEY" \
+           make-mirror "$REPLICA_ENDPOINT" \
+           --cacert="$CA_CERT" \
+           --cert="$CERT" \
+           --key="$KEY" \
+           --no-sync
+    
+    if [ $? -eq 0 ]; then
+        log_message "Sync completed successfully"
+    else
+        log_message "Sync failed"
+    fi
+}
+
+# Main replication loop
+while true; do
+    if check_primary && check_replica; then
+        sync_data
+    else
+        if ! check_primary; then
+            log_message "Primary etcd is not available, waiting..."
+        fi
+        if ! check_replica; then
+            log_message "Replica etcd is not available, waiting..."
+        fi
+    fi
+    
+    # Sleep before next sync (adjust as needed)
+    sleep 30
+done

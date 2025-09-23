@@ -9,6 +9,17 @@
   roles:
     - common
 
+- name: Configure etcd Cluster
+  hosts: masters
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/masters/main.yml
+  
+  roles:
+    - etcd
+
 - name: Initialize Kubernetes Cluster
   hosts: masters
   become: yes
@@ -19,7 +30,6 @@
   
   roles:
     - kubeadm-init
-    - etcd
 
 - name: Install Calico CNI
   hosts: masters[0]

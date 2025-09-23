@@ -1,0 +1,68 @@
+---
+- name: Verify etcd replication status
+  hosts: etcd_external
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+    - ../group_vars/etcd_external/main.yml
+  
+  tasks:
+    - name: Check primary etcd health
+      command: >
+        kubectl exec -n kube-system etcd-{{ groups['masters'][0] }} -- 
+        etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt
+        --cert=/etc/kubernetes/pki/etcd/server.crt
+        --key=/etc/kubernetes/pki/etcd/server.key
+        endpoint health
+      delegate_to: "{{ groups['masters'][0] }}"
+      register: primary_health
+
+    - name: Check replica etcd health
+      command: >
+        docker exec etcd-{{ inventory_hostname }} etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/kubernetes/pki/etcd/etcd-ca.crt
+        --cert=/etc/kubernetes/pki/etcd/server.crt
+        --key=/etc/kubernetes/pki/etcd/server.key
+        endpoint health
+      register: replica_health
+
+    - name: Get primary etcd key count
+      command: >
+        kubectl exec -n kube-system etcd-{{ groups['masters'][0] }} -- 
+        etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/kubernetes/pki/etcd/ca.crt
+        --cert=/etc/kubernetes/pki/etcd/server.crt
+        --key=/etc/kubernetes/pki/etcd/server.key
+        get / --prefix --keys-only
+      delegate_to: "{{ groups['masters'][0] }}"
+      register: primary_keys
+
+    - name: Get replica etcd key count
+      command: >
+        docker exec etcd-{{ inventory_hostname }} etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/kubernetes/pki/etcd/etcd-ca.crt
+        --cert=/etc/kubernetes/pki/etcd/server.crt
+        --key=/etc/kubernetes/pki/etcd/server.key
+        get / --prefix --keys-only
+      register: replica_keys
+
+    - name: Display replication results
+      debug:
+        msg:
+          - "Primary etcd health: {{ 'Healthy' if primary_health.rc == 0 else 'Unhealthy' }}"
+          - "Replica etcd health: {{ 'Healthy' if replica_health.rc == 0 else 'Unhealthy' }}"
+          - "Primary keys count: {{ primary_keys.stdout_lines | length }}"
+          - "Replica keys count: {{ replica_keys.stdout_lines | length }}"
+          - "Replication lag: {{ (primary_keys.stdout_lines | length) - (replica_keys.stdout_lines | length) }} keys"
+          - "Replication status: {{ 'In sync' if (primary_keys.stdout_lines | length) == (replica_keys.stdout_lines | length) else 'Out of sync' }}"
+
+    - name: Check replication container status
+      docker_container_info:
+        name: etcd-replication-{{ inventory_hostname }}
+      register: replication_container
+
+    - name: Display replication container status
+      debug:
+        msg: "Replication container status: {{ replication_container.container.State.Status }}"

@@ -1,0 +1,26 @@
+---
+# External etcd Configuration
+etcd_cluster: true
+etcd_data_dir: "/var/lib/etcd"
+etcd_peer_port: 2380
+etcd_client_port: 2379
+etcd_version: "3.5.9"
+
+# etcd Configuration for External Cluster
+etcd_initial_cluster: >
+  etcd1=https://192.168.1.30:2380,
+  etcd2=https://192.168.1.31:2380,
+  etcd3=https://192.168.1.32:2380
+
+# Resource Limits
+etcd_cpu_requests: "1000m"
+etcd_memory_requests: "2Gi"
+etcd_cpu_limits: "4000m"
+etcd_memory_limits: "8Gi"
+etcd_quota_backend_bytes: "8589934592"   # 8GB storage limit
+
+# etcd servers for replication
+etcd_servers: >
+  https://192.168.1.30:2379,
+  https://192.168.1.31:2379,
+  https://192.168.1.32:2379

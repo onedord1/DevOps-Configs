@@ -1,0 +1,81 @@
+---
+- name: Setup etcd replication using Docker container
+  block:
+    - name: Create replication script
+      template:
+        src: etcd-replication.sh.j2
+        dest: /usr/local/bin/etcd-replication.sh
+        mode: '0755'
+      become: yes
+
+    - name: Create Dockerfile for replication container
+      template:
+        src: Dockerfile-replication.j2
+        dest: /etc/etcd/Dockerfile-replication
+        mode: '0644'
+      become: yes
+
+    - name: Build replication container image
+      docker_image:
+        name: etcd-replication
+        build:
+          path: /etc/etcd
+          dockerfile: Dockerfile-replication
+        source: build
+      become: yes
+
+    - name: Create Docker Compose for replication
+      template:
+        src: docker-compose-replication.yml.j2
+        dest: /etc/etcd/docker-compose-replication.yml
+        mode: '0644'
+      become: yes
+
+    - name: Start replication container
+      docker_compose:
+        project_src: /etc/etcd
+        files:
+          - docker-compose-replication.yml
+        state: present
+        restarted: yes
+      become: yes
+
+    - name: Wait for replication to start
+      command: >
+        docker exec etcd-replication etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/kubernetes/pki/etcd/etcd-ca.crt
+        --cert=/etc/kubernetes/pki/etcd/server.crt
+        --key=/etc/kubernetes/pki/etcd/server.key
+        get / --prefix --keys-only
+      register: replica_keys
+      until: replica_keys.rc == 0
+      retries: 30
+      delay: 10
+      become: yes
+
+- name: Verify replication is working
+  command: >
+    kubectl exec -n kube-system etcd-{{ groups['masters'][0] }} -- 
+    etcdctl --endpoints=https://127.0.0.1:2379
+    --cacert=/etc/kubernetes/pki/etcd/ca.crt
+    --cert=/etc/kubernetes/pki/etcd/server.crt
+    --key=/etc/kubernetes/pki/etcd/server.key
+    get / --prefix --keys-only
+  delegate_to: "{{ groups['masters'][0] }}"
+  register: primary_keys
+
+- name: Compare keys between primary and replica
+  command: >
+    docker exec etcd-{{ inventory_hostname }} etcdctl --endpoints=https://127.0.0.1:2379
+    --cacert=/etc/kubernetes/pki/etcd/etcd-ca.crt
+    --cert=/etc/kubernetes/pki/etcd/server.crt
+    --key=/etc/kubernetes/pki/etcd/server.key
+    get / --prefix --keys-only
+  register: replica_keys_check
+
+- name: Display replication status
+  debug:
+    msg: 
+      - "Primary keys count: {{ primary_keys.stdout_lines | length }}"
+      - "Replica keys count: {{ replica_keys_check.stdout_lines | length }}"
+      - "Replication is working: {{ primary_keys.stdout_lines | length == replica_keys_check.stdout_lines | length }}"
