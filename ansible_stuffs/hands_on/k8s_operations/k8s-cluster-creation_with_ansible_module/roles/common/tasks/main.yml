@@ -149,9 +149,9 @@
 - name: Install Kubernetes packages
   apt:
     name:
-      - "kubelet={{ kubelet_version.stdout }}"
-      - "kubeadm={{ kubelet_version.stdout }}"
-      - "kubectl={{ kubelet_version.stdout }}"
+      - "kubelet"
+      - "kubeadm"
+      - "kubectl"
     state: present
   become: yes
 
