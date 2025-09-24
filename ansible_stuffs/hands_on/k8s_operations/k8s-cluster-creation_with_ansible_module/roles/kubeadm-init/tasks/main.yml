@@ -4,13 +4,23 @@
     path: /etc/kubernetes/admin.conf
   register: kubeadm_init_file
 
+- name: Ensure Kubernetes version has correct format
+  set_fact:
+    # Handle all cases: 1.33 -> v1.33.0, v1.33 -> v1.33.0, v1.33.0 -> v1.33.0
+    kubernetes_version_final: "{% if kubernetes_version is defined %}{% if kubernetes_version.startswith('v') %}{{ kubernetes_version }}{% else %}v{{ kubernetes_version }}{% endif %}{% if '.' in kubernetes_version and kubernetes_version.count('.') == 1 %}.0{% endif %}{% else %}v1.28.0{% endif %}"
+
+- name: Debug Kubernetes version
+  debug:
+    msg: "Using Kubernetes version: {{ kubernetes_version_final }}"
+  when: inventory_hostname == groups['masters'][0]
+
 - name: Initialize Kubernetes cluster on first master
   command: >
     kubeadm init
     --control-plane-endpoint="{{ control_plane_endpoint }}"
     --pod-network-cidr="{{ pod_network_cidr }}"
     --service-cidr="{{ service_network_cidr }}"
-    --kubernetes-version="{{ kubernetes_version }}"
+    --kubernetes-version="{{ kubernetes_version_final }}"
     --upload-certs
     --apiserver-advertise-address="{{ ansible_host }}"
     --ignore-preflight-errors=Swap
@@ -49,17 +59,32 @@
   when: inventory_hostname == groups['masters'][0]
   changed_when: false
 
+- name: Store join command and certificate key in a file
+  copy:
+    content: |
+      JOIN_COMMAND: "{{ join_command.stdout }}"
+      CERTIFICATE_KEY: "{{ certificate_key.stdout_lines[-1] }}"
+    dest: /tmp/kubeadm_join_info
+  when: inventory_hostname == groups['masters'][0] and join_command.stdout is defined
+
+- name: Read join command and certificate key from file
+  slurp:
+    src: /tmp/kubeadm_join_info
+  register: join_info
+  delegate_to: "{{ groups['masters'][0] }}"
+  when: inventory_hostname != groups['masters'][0]
+
 - name: Set join command and certificate key facts
   set_fact:
-    master_join_command: "{{ join_command.stdout }}"
-    master_certificate_key: "{{ certificate_key.stdout_lines[-1] }}"
-  when: inventory_hostname == groups['masters'][0]
+    master_join_command: "{{ (join_info.content | b64decode | from_yaml).JOIN_COMMAND }}"
+    master_certificate_key: "{{ (join_info.content | b64decode | from_yaml).CERTIFICATE_KEY }}"
+  when: inventory_hostname != groups['masters'][0] and join_info.content is defined
 
 - name: Join additional masters to cluster
   command: >
-    {{ hostvars[groups['masters'][0]]['master_join_command'] }}
+    {{ master_join_command }}
     --control-plane
-    --certificate-key {{ hostvars[groups['masters'][0]]['master_certificate_key'] }}
+    --certificate-key {{ master_certificate_key }}
   become: yes
   when: inventory_hostname != groups['masters'][0] and not kubeadm_init_file.stat.exists
   register: master_join
@@ -81,8 +106,18 @@
   delegate_to: "{{ groups['masters'][0] }}"
   changed_when: false
 
+- name: Store worker join command in a file
+  copy:
+    content: "{{ worker_join_command.stdout }}"
+    dest: /tmp/worker_join_command
+  delegate_to: "{{ groups['masters'][0] }}"
+
+- name: Read worker join command from file
+  slurp:
+    src: /tmp/worker_join_command
+  register: worker_join_info
+  delegate_to: "{{ groups['masters'][0] }}"
+
 - name: Set worker join command fact
   set_fact:
-    worker_join_command: "{{ worker_join_command.stdout }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  delegate_facts: yes
+    worker_join_command: "{{ worker_join_info.content | b64decode }}"

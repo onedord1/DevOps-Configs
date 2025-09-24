@@ -104,7 +104,7 @@
   lineinfile:
     path: /etc/containerd/config.toml
     regexp: 'SystemdCgroup ='
-    line: '            SystemdCgroup = true'
+    line: 'SystemdCgroup = true'
   become: yes
 
 - name: Enable and restart containerd

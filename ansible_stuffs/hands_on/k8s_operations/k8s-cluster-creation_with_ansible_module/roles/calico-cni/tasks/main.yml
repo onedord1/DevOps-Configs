@@ -1,50 +1,163 @@
 ---
+# roles/calico-cni/tasks/main.yml
 - name: Check if Calico is already installed
-  kubernetes.core.k8s_info:
+  local_action:
+    module: kubernetes.core.k8s_info
     api_version: operator.tigera.io/v1
     kind: Installation
     name: default
+  become: no
   register: calico_installation
-  delegate_to: "{{ groups['masters'][0] }}"
 
-- name: Create Calico namespace
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'calico-namespace.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: calico_installation.resources | length == 0
+- name: Debug - Show Calico installation status
+  debug:
+    msg: "Calico installation found: {{ calico_installation.resources | length > 0 }}"
+
+- name: Delete existing Calico installation if it exists
+  local_action:
+    module: kubernetes.core.k8s
+    state: absent
+    definition: "{{ lookup('url', 'https://raw.githubusercontent.com/projectcalico/calico/' + calico_version + '/manifests/tigera-operator.yaml', split_lines=False) | from_yaml_all }}"
+  become: no
+  when: calico_installation.resources | length > 0
+
+- name: Wait for cleanup
+  pause:
+    seconds: 30
+  become: no
+  when: calico_installation.resources | length > 0
 
 - name: Install Calico operator
-  kubernetes.core.k8s:
+  local_action:
+    module: kubernetes.core.k8s
     state: present
-    definition: "{{ lookup('template', 'calico-operator.yaml.j2') | from_yaml_all }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: calico_installation.resources | length == 0
+    definition: "{{ lookup('url', 'https://raw.githubusercontent.com/projectcalico/calico/' + calico_version + '/manifests/tigera-operator.yaml', split_lines=False) | from_yaml_all }}"
+  become: no
 
-- name: Install Calico custom resources
-  kubernetes.core.k8s:
+- name: Add tolerations to tigera-operator deployment
+  local_action:
+    module: kubernetes.core.k8s
     state: present
-    definition: "{{ lookup('template', 'calico-installation.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: calico_installation.resources | length == 0
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: tigera-operator
+        namespace: tigera-operator
+      spec:
+        template:
+          spec:
+            tolerations:
+              - key: node-role.kubernetes.io/control-plane
+                effect: NoSchedule
+              - key: node-role.kubernetes.io/master
+                effect: NoSchedule
+              - key: "node.kubernetes.io/not-ready"
+                operator: "Exists"
+                effect: "NoExecute"
+                tolerationSeconds: 300
+              - key: "node.kubernetes.io/unreachable"
+                operator: "Exists"
+                effect: "NoExecute"
+                tolerationSeconds: 300
+  become: no
 
-- name: Configure Calico Felix
-  kubernetes.core.k8s:
+- name: Wait for operator to be ready
+  local_action:
+    module: kubernetes.core.k8s_info
+    api_version: apps/v1
+    kind: Deployment
+    name: tigera-operator
+    namespace: tigera-operator
+  register: operator_deployment
+  until: operator_deployment.resources | length > 0 and operator_deployment.resources[0].status.readyReplicas is defined and operator_deployment.resources[0].status.readyReplicas == operator_deployment.resources[0].status.replicas
+  retries: 30
+  delay: 10
+  become: no
+
+- name: Create custom Calico installation manifest
+  local_action:
+    module: kubernetes.core.k8s
     state: present
-    definition: "{{ lookup('template', 'calico-felix-config.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: calico_installation.resources | length == 0
+    definition:
+      apiVersion: operator.tigera.io/v1
+      kind: Installation
+      metadata:
+        name: default
+      spec:
+        calicoNetwork:
+          ipPools:
+          - blockSize: 26
+            cidr: "{{ pod_network_cidr }}"
+            encapsulation: "{{ calico_ipip_mode | lower }}"
+            natOutgoing: "{{ calico_nat_outgoing | lower | capitalize }}"
+            nodeSelector: all()
+          nodeAddressAutodetectionV4:
+            firstFound: true
+  become: no
 
 - name: Wait for Calico pods to be ready
-  kubernetes.core.k8s_info:
+  local_action:
+    module: kubernetes.core.k8s_info
+    api_version: v1
+    kind: Pod
+    namespace: calico-system
+    label_selectors:
+      - "k8s-app=calico-node"
+  register: calico_pods
+  until: calico_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == calico_pods.resources | length
+  retries: 60
+  delay: 10
+  become: no
+
+- name: Verify Calico installation
+  local_action:
+    module: kubernetes.core.k8s_info
+    api_version: operator.tigera.io/v1
+    kind: Installation
+    name: default
+  register: final_calico_check
+  become: no
+
+- name: Show final Calico status
+  debug:
+    msg: "Calico installation status: {{ final_calico_check.resources[0].status if final_calico_check.resources | length > 0 else 'Not found' }}"
+
+- name: Check node status after Calico installation
+  local_action:
+    module: kubernetes.core.k8s_info
+    api_version: v1
+    kind: Node
+  register: node_status
+  become: no
+
+- name: Debug - Show final node status
+  debug:
+    msg: |
+      {% for node in node_status.resources %}
+      Node {{ node.metadata.name }} status:
+      {% for condition in node.status.conditions %}
+      {{ condition.type }}: {{ condition.status }} - {{ condition.message }}
+      {% endfor %}
+      {% endfor %}
+  become: no
+
+- name: Check CoreDNS pods status
+  local_action:
+    module: kubernetes.core.k8s_info
     api_version: v1
     kind: Pod
     namespace: kube-system
     label_selectors:
-      - "k8s-app=calico-node"
-  register: calico_pods
-  delegate_to: "{{ groups['masters'][0] }}"
-  until: calico_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == calico_pods.resources | length
-  retries: 30
-  delay: 10
-  when: calico_installation.resources | length == 0
+      - "k8s-app=kube-dns"
+  register: coredns_pods
+  become: no
+
+- name: Debug - Show CoreDNS pods status
+  debug:
+    msg: |
+      CoreDNS pods:
+      {% for pod in coredns_pods.resources %}
+      {{ pod.metadata.name }}: {{ pod.status.phase }}
+      {% endfor %}
+  become: no

@@ -9,16 +9,16 @@
   roles:
     - common
 
-- name: Configure etcd Cluster
-  hosts: masters
-  become: yes
-  gather_facts: yes
-  vars_files:
-    - ../group_vars/all/main.yml
-    - ../group_vars/masters/main.yml
+# - name: Configure etcd Cluster
+#   hosts: masters
+#   become: yes
+#   gather_facts: yes
+#   vars_files:
+#     - ../group_vars/all/main.yml
+#     - ../group_vars/masters/main.yml
   
-  roles:
-    - etcd
+#   roles:
+#     - etcd
 
 - name: Initialize Kubernetes Cluster
   hosts: masters
