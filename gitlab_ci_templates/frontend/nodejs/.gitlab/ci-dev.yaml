@@ -1,30 +1,13 @@
 stages:
-  - sonar
   - build
+  - sonar
   - deploy
   - trigger_argo
 
-sonarqube-report:
-  image:
-    name: registry.cloudaes.com/base-images/sonar-node20:v2
-  stage: sonar
-  allow_failure: true
-  script:
-    - npm i
-    - npx vitest run --coverage
-    - sonar-scanner -Dsonar.login=$sonar_token -Dsonar.qualitygate.wait=true
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_APPROVED != "true"'
-      when: always
-    - when: never
-  tags:
-    - dev
-
 image-build:
   stage: build
+  resource_group: dev
   image: registry.cloudaes.com/base-images/docker:24.0.5-cli
-  needs:
-    - sonarqube-report
   services:
     - docker:24.0.5-dind
   variables:
@@ -45,12 +28,12 @@ image-build:
         }
         echo "Starting Docker build...";
         IMAGE_NAME="registry.cloudaes.com/bmd-sales-fe/bmd-sales-fe";
-        IMAGE_TAG="$(date +'%d%b-%H-%M')-$CI_MERGE_REQUEST_IID";
+        IMAGE_TAG="$(date +'%d%b')-$CI_MERGE_REQUEST_IID";
         export IMAGE_NAME IMAGE_TAG CI_JOB_NAME GOOGLE_CHAT_WEBHOOK_URL;
         echo "Debug: IMAGE_NAME=$IMAGE_NAME, IMAGE_TAG=$IMAGE_TAG, CI_JOB_NAME=$CI_JOB_NAME";
         [ -n "$IMAGE_TAG" ] && [ "$IMAGE_TAG" != "-" ] || { echo "Error: Invalid IMAGE_TAG"; send_notification "FE Build Failure" "Back to the drawing board"; exit 1; };
         echo "$harborpass" | docker login registry.cloudaes.com -u "$harboruser" --password-stdin || { send_notification "Build Failure" "Who are you scammer! 😱 - Docker login failed"; exit 1; }
-        docker build --no-cache --build-arg BRANCH=$CI_MERGE_REQUEST_TARGET_BRANCH_NAME --build-arg NEXUS_AUTH_TOKEN="$NEXUS_AUTH_TOKEN" -t "$IMAGE_NAME:$IMAGE_TAG" . || { send_notification "FE Build Failure" "Who broke the build?"; exit 1; };
+        docker build --no-cache --progress=plain --build-arg VITE_SALES_API_URL="$VITE_SALES_API_URL_DEV" --build-arg VITE_OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost" --build-arg VITE_OTEL_SERVICE_NAME="dev-bmdsales-fe" --build-arg SIGNOZ_USERNAME="dev" --build-arg SIGNOZ_PASSWORD="dev" --build-arg NEXUS_AUTH_TOKEN="$NEXUS_AUTH_TOKEN" -t "$IMAGE_NAME:$IMAGE_TAG" . || { send_notification "FE Build Failure" "Who broke the build?"; exit 1; };
         docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest" || { send_notification "FE Build Failure" "Tagging failed"; exit 1; };
         docker push "$IMAGE_NAME:$IMAGE_TAG" || { send_notification "FE Build Failure" "Push failed"; exit 1; };
         docker push "$IMAGE_NAME:latest" || { send_notification "FE Build Failure" "Push failed for latest"; exit 1; };
@@ -63,6 +46,27 @@ image-build:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_APPROVED != "true"'
       when: always
+    - when: never
+  tags:
+    - dev
+
+sonarqube-report:
+  image:
+    name: registry.cloudaes.com/base-images/sonar-node20:v2
+  stage: sonar
+  needs:
+  - job: image-build
+  resource_group: dev
+  allow_failure: true
+  script:
+    - npm i
+    - npx vitest run --coverage
+    - export SONAR_PROJECT_KEY=bmd-sales-fe-dev
+    - export SONAR_PROJECT_NAME="BMD Sales Frontend Dev"
+    - sonar-scanner -Dsonar.login=$sonar_token -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.projectName="$SONAR_PROJECT_NAME" -Dsonar.qualitygate.wait=true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_APPROVED != "true"'
+      when: on_success
     - when: never
   tags:
     - dev
@@ -91,7 +95,7 @@ update-manifest:
           curl -s -X POST -H "Content-Type: application/json" -d "$payload" "$GOOGLE_CHAT_WEBHOOK_URL" || echo "Failed to send notification"
         }
         MR_IID=$(git log -1 --pretty=%B | grep -oP 'See merge request .*!\K\d+');
-        IMAGE_TAG="$(date +'%d%b-%H-%M')-$MR_IID";
+        IMAGE_TAG="$(date +'%d%b')-$MR_IID";
         echo "Debug: IMAGE_TAG=$IMAGE_TAG, CI_JOB_NAME=$CI_JOB_NAME";
         export IMAGE_TAG;
         [ -n "$IMAGE_TAG" ] || { echo "Error: IMAGE_TAG is empty"; send_notification "FE Deploy Failure" "Something's fishy 🐟"; exit 1; };
@@ -119,9 +123,9 @@ update-manifest:
     
 trigger_argo:
   image: registry.cloudaes.com/base-images/argocli:v2.6.15
+  stage: trigger_argo
   needs:
     - update-manifest
-  stage: trigger_argo
   resource_group: dev
   script:
     - APP="bmdsales-dev-ns"
@@ -130,7 +134,7 @@ trigger_argo:
     - argocd app wait $APP
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "dev"'
-      when: always
+      when: on_success
     - when: never
   tags:
     - dev
