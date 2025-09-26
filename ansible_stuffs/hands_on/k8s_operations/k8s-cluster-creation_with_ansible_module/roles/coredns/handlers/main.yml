@@ -1,18 +1,7 @@
 ---
 - name: restart coredns
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Pod
-      metadata:
-        name: "coredns-restart-{{ ansible_date_time.epoch }}"
-        namespace: kube-system
-        labels:
-          app: coredns-restart
-      spec:
-        containers:
-        - name: restart
-          image: busybox
-          command: ["sh", "-c", "sleep 10 && kubectl delete pod -l k8s-app=kube-dns -n kube-system"]
-  delegate_to: "{{ groups['masters'][0] }}"
+  shell: |
+    kubectl delete pods -l k8s-app=kube-dns -n kube-system
+  delegate_to: localhost
+  become: no
+  ignore_errors: yes

@@ -1,4 +1,5 @@
 ---
+ansible_python_interpreter: /usr/bin/python3
 # Kubernetes Cluster Configuration
 kubernetes_version: "1.33"
 container_runtime: "containerd"
@@ -15,7 +16,7 @@ etcd_peer_port: 2380
 etcd_client_port: 2379
 
 # MetalLB Configuration
-metallb_version: "v0.13.12"
+metallb_version: "0.15.2"
 metallb_ip_range: "172.17.17.25-172.17.17.50"
 metallb_protocol: "layer2"
 
@@ -27,7 +28,7 @@ calico_nat_outgoing: true
 calico_felix_defaultloglevel: "info"
 
 # CoreDNS Configuration
-coredns_version: "1.12.4"
+coredns_version: "v1.11.3"
 coredns_replicas: 2
 coredns_image: "registry.k8s.io/coredns/coredns"
 

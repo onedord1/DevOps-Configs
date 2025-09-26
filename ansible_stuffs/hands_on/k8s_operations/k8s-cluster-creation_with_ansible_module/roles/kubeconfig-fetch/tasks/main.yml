@@ -1,32 +1,30 @@
 ---
-- name: Create local kubeconfig directory
-  file:
-    path: ./files/kubeconfig
-    state: directory
-    mode: '0755'
+- name: Check if kubeconfig exists locally
+  ansible.builtin.stat:
+    path: "../roles/kubeconfig-fetch/files/kubeconfig/config"
   delegate_to: localhost
+  register: kubeconfig_check
   run_once: true
+  become: no
 
-- name: Fetch kubeconfig from master
-  fetch:
+- name: Fetch kubeconfig from master node
+  ansible.builtin.fetch:
     src: /etc/kubernetes/admin.conf
-    dest: ./files/kubeconfig/config
+    dest: "../roles/kubeconfig-fetch/files/kubeconfig/config"
     flat: yes
-  become: yes
-  delegate_to: "{{ groups['masters'][0] }}"
+  when: not kubeconfig_check.stat.exists
   run_once: true
 
-- name: Update kubeconfig with correct server address
-  replace:
-    path: ./files/kubeconfig/config
-    regexp: 'server: https://127.0.0.1:6443'
-    replace: 'server: https://{{ control_plane_endpoint }}:6443'
+- name: Verify kubeconfig was successfully fetched
+  ansible.builtin.stat:
+    path: "../roles/kubeconfig-fetch/files/kubeconfig/config"
   delegate_to: localhost
+  register: kubeconfig_verify
   run_once: true
+  become: no
 
-- name: Set correct permissions on kubeconfig
-  file:
-    path: ./files/kubeconfig/config
-    mode: '0600'
-  delegate_to: localhost
+  
+- name: Show kubeconfig location and status
+  ansible.builtin.debug:
+    msg: "Kubeconfig {% if kubeconfig_verify.stat.exists %}successfully{% else %}failed to{% endif %} fetch to: {{ playbook_dir }}/roles/kubeconfig-fetch/files/kubeconfig/config"
   run_once: true

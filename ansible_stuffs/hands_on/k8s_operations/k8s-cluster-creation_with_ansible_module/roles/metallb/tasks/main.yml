@@ -1,60 +1,182 @@
 ---
 - name: Check if MetalLB is installed
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: metallbservers.metallb.io
+  shell: |
+    kubectl get crd metallbservers.metallb.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  delegate_to: localhost
+  become: no
   register: metallb_crd
-  delegate_to: "{{ groups['masters'][0] }}"
+  changed_when: false
 
-- name: Create MetalLB namespace
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-namespace.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: metallb_crd.resources | length == 0
+- name: Debug - Show MetalLB installation status
+  debug:
+    msg: "MetalLB CRD found: {{ metallb_crd.stdout != 'not-found' }}"
 
-- name: Create MetalLB RBAC
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-rbac.yaml.j2') | from_yaml_all }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: metallb_crd.resources | length == 0
+- name: Enable strict ARP mode for kube-proxy
+  block:
+    - name: Check current strictARP setting
+      shell: |
+        kubectl get configmap kube-proxy -n kube-system -o yaml | grep "strictARP:" | awk '{print $2}'
+      delegate_to: localhost
+      become: no
+      register: strictarp_check
+      changed_when: false
 
-- name: Create MetalLB Deployment
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-deployment.yaml.j2') | from_yaml_all }}"
-  delegate_to: "{{ groups['masters'][0] }}"
-  when: metallb_crd.resources | length == 0
+    - name: Debug - Show current strictARP setting
+      debug:
+        msg: "Current strictARP setting: {{ strictarp_check.stdout }}"
 
-- name: Create MetalLB ConfigMap
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-configmap.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Enable strictARP mode
+      shell: |
+        kubectl get configmap kube-proxy -n kube-system -o yaml | \
+        sed -e "s/strictARP: false/strictARP: true/" | \
+        kubectl apply -f - -n kube-system
+      delegate_to: localhost
+      become: no
+      when: strictarp_check.stdout == "false"
+      register: strictarp_change
 
-- name: Create MetalLB IPAddressPool
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-ipaddresspool.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Debug - Show strictARP change result
+      debug:
+        msg: "strictARP change result: {{ strictarp_change.stdout }}"
+      when: strictarp_change.changed
+  when: metallb_crd.stdout == 'not-found'
 
-- name: Create MetalLB L2Advertisement
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'metallb-l2advertisement.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+- name: Create MetalLB manifests from templates
+  block:
+    - name: Create MetalLB namespace
+      copy:
+        dest: "/tmp/metallb-namespace.yaml"
+        content: "{{ lookup('template', 'metallb-namespace.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Create MetalLB ConfigMap
+      copy:
+        dest: "/tmp/metallb-configmap.yaml"
+        content: "{{ lookup('template', 'metallb-configmap.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Create MetalLB IPAddressPool
+      copy:
+        dest: "/tmp/metallb-ipaddresspool.yaml"
+        content: "{{ lookup('template', 'metallb-ipaddresspool.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Create MetalLB L2Advertisement
+      copy:
+        dest: "/tmp/metallb-l2advertisement.yaml"
+        content: "{{ lookup('template', 'metallb-l2advertisement.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+- name: Apply MetalLB namespace
+  command: kubectl apply -f /tmp/metallb-namespace.yaml
+  delegate_to: localhost
+  become: no
+  when: metallb_crd.stdout == 'not-found'
+
+- name: Download MetalLB manifest with CRDs
+  get_url:
+    url: "https://raw.githubusercontent.com/metallb/metallb/v{{ metallb_version }}/config/manifests/metallb-native.yaml"
+    dest: "/tmp/metallb-crds.yaml"
+    mode: '0644'
+  delegate_to: localhost
+  become: no
+  when: metallb_crd.stdout == 'not-found'
+
+- name: Apply MetalLB manifest (includes CRDs and RBAC)
+  command: kubectl apply -f /tmp/metallb-crds.yaml
+  delegate_to: localhost
+  become: no
+  register: metallb_manifest_apply
+  when: metallb_crd.stdout == 'not-found'
+
+- name: Debug - Show manifest application result
+  debug:
+    msg: "Manifest application result: {{ metallb_manifest_apply.stdout }}"
+  when: metallb_manifest_apply.changed
+
+# - name: Wait for MetalLB CRDs to be available
+#   block:
+#     - name: Wait for IPAddressPool CRD
+#       shell: |
+#         kubectl get crd addresspools.metallb.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+#       delegate_to: localhost
+#       become: no
+#       register: addresspool_crd
+#       retries: 20
+#       delay: 10
+#       until: addresspool_crd.stdout == "addresspools.metallb.io"
+
+#     - name: Wait for L2Advertisement CRD
+#       shell: |
+#         kubectl get crd l2advertisements.metallb.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+#       delegate_to: localhost
+#       become: no
+#       register: l2advertisement_crd
+#       retries: 20
+#       delay: 10
+#       until: l2advertisement_crd.stdout == "l2advertisements.metallb.io"
+
+#     - name: Debug - Show CRD status
+#       debug:
+#         msg: |
+#           IPAddressPool CRD: {{ addresspool_crd.stdout }}
+#           L2Advertisement CRD: {{ l2advertisement_crd.stdout }}
+
+- name: Apply MetalLB ConfigMap
+  command: kubectl apply -f /tmp/metallb-configmap.yaml
+  delegate_to: localhost
+  become: no
+
+- name: Apply MetalLB custom resources
+  block:
+    - name: Apply MetalLB IPAddressPool
+      command: kubectl apply -f /tmp/metallb-ipaddresspool.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply MetalLB L2Advertisement
+      command: kubectl apply -f /tmp/metallb-l2advertisement.yaml
+      delegate_to: localhost
+      become: no
 
 - name: Wait for MetalLB pods to be ready
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    namespace: metallb-system
-    label_selectors:
-      - "app=metallb"
-  register: metallb_pods
-  delegate_to: "{{ groups['masters'][0] }}"
-  until: metallb_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == metallb_pods.resources | length
+  shell: |
+    kubectl wait --for=condition=ready --timeout=600s -n metallb-system pods -l app=metallb
+  delegate_to: localhost
+  become: no
+  register: metallb_wait
   retries: 30
   delay: 10
+  until: metallb_wait.rc == 0
+
+- name: Verify MetalLB deployment
+  command: kubectl get pods -n metallb-system -l app=metallb --no-headers
+  delegate_to: localhost
+  become: no
+  register: metallb_pods
+
+- name: Show MetalLB status
+  debug:
+    msg: |
+      MetalLB pods status:
+      {% for pod in metallb_pods.stdout_lines %}
+      {{ pod }}
+      {% endfor %}
+
+- name: Clean up temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  delegate_to: localhost
+  become: no
+  with_items:
+    - /tmp/metallb-namespace.yaml
+    - /tmp/metallb-configmap.yaml
+    - /tmp/metallb-ipaddresspool.yaml
+    - /tmp/metallb-l2advertisement.yaml
+    - /tmp/metallb-crds.yaml
+  ignore_errors: yes

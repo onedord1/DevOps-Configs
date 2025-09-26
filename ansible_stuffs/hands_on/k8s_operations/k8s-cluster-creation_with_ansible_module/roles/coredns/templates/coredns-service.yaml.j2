@@ -13,7 +13,7 @@ metadata:
 spec:
   selector:
     k8s-app: kube-dns
-  clusterIP: {{ service_network_cidr | ipaddr('net') | ipaddr(10) | ipaddr('address') }}
+  clusterIP: {{ coredns_cluster_ip }}
   ports:
   - name: dns
     port: 53

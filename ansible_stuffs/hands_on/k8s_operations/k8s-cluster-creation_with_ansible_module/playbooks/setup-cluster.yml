@@ -9,17 +9,6 @@
   roles:
     - common
 
-# - name: Configure etcd Cluster
-#   hosts: masters
-#   become: yes
-#   gather_facts: yes
-#   vars_files:
-#     - ../group_vars/all/main.yml
-#     - ../group_vars/masters/main.yml
-  
-#   roles:
-#     - etcd
-
 - name: Initialize Kubernetes Cluster
   hosts: masters
   become: yes
@@ -51,15 +40,6 @@
   roles:
     - coredns
 
-- name: Install MetalLB
-  hosts: masters[0]
-  become: yes
-  gather_facts: yes
-  vars_files:
-    - ../group_vars/all/main.yml
-  
-  roles:
-    - metallb
 
 - name: Join worker nodes
   hosts: workers
@@ -79,8 +59,18 @@
       command: "{{ hostvars[groups['masters'][0]]['worker_join_command'] }}"
       when: not kubelet_conf.stat.exists
 
-- name: Fetch kubeconfig
+- name: Install MetalLB
   hosts: masters[0]
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all/main.yml
+  
+  roles:
+    - metallb
+
+- name: Fetch kubeconfig
+  hosts: masters
   become: yes
   gather_facts: yes
   vars_files:

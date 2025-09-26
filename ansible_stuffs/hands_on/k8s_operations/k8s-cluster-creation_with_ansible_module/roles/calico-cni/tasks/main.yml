@@ -1,44 +1,110 @@
 ---
 # roles/calico-cni/tasks/main.yml
-- name: Check if Calico is already installed
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: operator.tigera.io/v1
-    kind: Installation
-    name: default
+
+- name: Check if kubectl is available
+  command: kubectl version --client
+  delegate_to: localhost
   become: no
-  register: calico_installation
+  register: kubectl_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Fail if kubectl is not available
+  fail:
+    msg: "kubectl is not available on localhost. Please install kubectl and configure kubeconfig."
+  when: kubectl_check.failed
+  delegate_to: localhost
+  become: no
+
+- name: Check if Calico is already installed
+  shell: |
+    kubectl get installation.operator.tigera.io default -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  delegate_to: localhost
+  become: no
+  register: calico_check
+  changed_when: false
 
 - name: Debug - Show Calico installation status
   debug:
-    msg: "Calico installation found: {{ calico_installation.resources | length > 0 }}"
+    msg: "Calico installation found: {{ calico_check.stdout != 'not-found' }}"
+
+- name: Download Calico operator manifest
+  get_url:
+    url: "https://raw.githubusercontent.com/projectcalico/calico/{{ calico_version }}/manifests/tigera-operator.yaml"
+    dest: "/tmp/tigera-operator.yaml"
+    mode: '0644'
+  delegate_to: localhost
+  become: no
 
 - name: Delete existing Calico installation if it exists
-  local_action:
-    module: kubernetes.core.k8s
-    state: absent
-    definition: "{{ lookup('url', 'https://raw.githubusercontent.com/projectcalico/calico/' + calico_version + '/manifests/tigera-operator.yaml', split_lines=False) | from_yaml_all }}"
+  shell: |
+    kubectl delete -f /tmp/tigera-operator.yaml
+    sleep 30
+  delegate_to: localhost
   become: no
-  when: calico_installation.resources | length > 0
-
-- name: Wait for cleanup
-  pause:
-    seconds: 30
-  become: no
-  when: calico_installation.resources | length > 0
+  when: calico_check.stdout != 'not-found'
+  ignore_errors: yes
 
 - name: Install Calico operator
-  local_action:
-    module: kubernetes.core.k8s
-    state: present
-    definition: "{{ lookup('url', 'https://raw.githubusercontent.com/projectcalico/calico/' + calico_version + '/manifests/tigera-operator.yaml', split_lines=False) | from_yaml_all }}"
+  command: kubectl apply -f /tmp/tigera-operator.yaml
+  delegate_to: localhost
+  become: no
+  register: operator_install
+
+- name: Wait for operator to be ready
+  shell: |
+    kubectl wait --for=condition=available --timeout=600s deployment/tigera-operator -n tigera-operator
+  delegate_to: localhost
+  become: no
+  register: operator_wait
+  retries: 10
+  delay: 30
+  until: operator_wait.rc == 0
+
+- name: Wait for CRDs to be available
+  shell: |
+    kubectl get crd installations.operator.tigera.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  delegate_to: localhost
+  become: no
+  register: crd_check
+  retries: 20
+  delay: 10
+  until: crd_check.stdout == "installations.operator.tigera.io"
+
+- name: Debug - Show CRD status
+  debug:
+    msg: "CRD available: {{ crd_check.stdout == 'installations.operator.tigera.io' }}"
+
+- name: Create Calico installation manifest
+  copy:
+    dest: "/tmp/calico-installation.yaml"
+    content: |
+      apiVersion: operator.tigera.io/v1
+      kind: Installation
+      metadata:
+        name: default
+      spec:
+        calicoNetwork:
+          ipPools:
+          - blockSize: 26
+            cidr: {{ pod_network_cidr }}
+            encapsulation: IPIP
+            natOutgoing: Enabled
+            nodeSelector: all()
+          nodeAddressAutodetectionV4:
+            firstFound: true
+  delegate_to: localhost
   become: no
 
-- name: Add tolerations to tigera-operator deployment
-  local_action:
-    module: kubernetes.core.k8s
-    state: present
-    definition:
+- name: Apply Calico installation
+  command: kubectl apply -f /tmp/calico-installation.yaml
+  delegate_to: localhost
+  become: no
+
+- name: Create Calico configuration for tolerations
+  copy:
+    dest: "/tmp/tigera-operator-patch.yaml"
+    content: |
       apiVersion: apps/v1
       kind: Deployment
       metadata:
@@ -60,104 +126,69 @@
                 operator: "Exists"
                 effect: "NoExecute"
                 tolerationSeconds: 300
+  delegate_to: localhost
   become: no
 
-- name: Wait for operator to be ready
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: apps/v1
-    kind: Deployment
-    name: tigera-operator
-    namespace: tigera-operator
-  register: operator_deployment
-  until: operator_deployment.resources | length > 0 and operator_deployment.resources[0].status.readyReplicas is defined and operator_deployment.resources[0].status.readyReplicas == operator_deployment.resources[0].status.replicas
-  retries: 30
-  delay: 10
+- name: Apply tolerations to tigera-operator
+  command: kubectl apply -f /tmp/tigera-operator-patch.yaml
+  delegate_to: localhost
   become: no
-
-- name: Create custom Calico installation manifest
-  local_action:
-    module: kubernetes.core.k8s
-    state: present
-    definition:
-      apiVersion: operator.tigera.io/v1
-      kind: Installation
-      metadata:
-        name: default
-      spec:
-        calicoNetwork:
-          ipPools:
-          - blockSize: 26
-            cidr: "{{ pod_network_cidr }}"
-            encapsulation: "{{ calico_ipip_mode | lower }}"
-            natOutgoing: "{{ calico_nat_outgoing | lower | capitalize }}"
-            nodeSelector: all()
-          nodeAddressAutodetectionV4:
-            firstFound: true
-  become: no
+  ignore_errors: yes
 
 - name: Wait for Calico pods to be ready
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: v1
-    kind: Pod
-    namespace: calico-system
-    label_selectors:
-      - "k8s-app=calico-node"
-  register: calico_pods
-  until: calico_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == calico_pods.resources | length
-  retries: 60
-  delay: 10
+  shell: |
+    kubectl wait --for=condition=ready --timeout=600s -n calico-system pods -l k8s-app=calico-node
+  delegate_to: localhost
   become: no
+  register: calico_wait
+  retries: 20
+  delay: 30
+  until: calico_wait.rc == 0
 
 - name: Verify Calico installation
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: operator.tigera.io/v1
-    kind: Installation
-    name: default
-  register: final_calico_check
+  command: kubectl get installation.operator.tigera.io default -o jsonpath='{.status.phase}'
+  delegate_to: localhost
   become: no
+  register: calico_status
 
 - name: Show final Calico status
   debug:
-    msg: "Calico installation status: {{ final_calico_check.resources[0].status if final_calico_check.resources | length > 0 else 'Not found' }}"
+    msg: "Calico installation status: {{ calico_status.stdout }}"
 
 - name: Check node status after Calico installation
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: v1
-    kind: Node
-  register: node_status
+  command: kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.conditions[?(@.type=="Ready")].status}{"\t"}{.status.conditions[?(@.type=="Ready")].message}{"\n"}{end}'
+  delegate_to: localhost
   become: no
+  register: node_status
 
 - name: Debug - Show final node status
   debug:
     msg: |
-      {% for node in node_status.resources %}
-      Node {{ node.metadata.name }} status:
-      {% for condition in node.status.conditions %}
-      {{ condition.type }}: {{ condition.status }} - {{ condition.message }}
+      {% for line in node_status.stdout.split('\n') %}
+      {{ line }}
       {% endfor %}
-      {% endfor %}
-  become: no
 
 - name: Check CoreDNS pods status
-  local_action:
-    module: kubernetes.core.k8s_info
-    api_version: v1
-    kind: Pod
-    namespace: kube-system
-    label_selectors:
-      - "k8s-app=kube-dns"
-  register: coredns_pods
+  command: kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers
+  delegate_to: localhost
   become: no
+  register: coredns_pods
 
 - name: Debug - Show CoreDNS pods status
   debug:
     msg: |
-      CoreDNS pods:
-      {% for pod in coredns_pods.resources %}
-      {{ pod.metadata.name }}: {{ pod.status.phase }}
+      {% for line in coredns_pods.stdout_lines %}
+      {{ line }}
       {% endfor %}
+
+- name: Clean up temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  delegate_to: localhost
   become: no
+  with_items:
+    - /tmp/tigera-operator.yaml
+    - /tmp/calico-installation.yaml
+    - /tmp/tigera-operator-patch.yaml
+  ignore_errors: yes

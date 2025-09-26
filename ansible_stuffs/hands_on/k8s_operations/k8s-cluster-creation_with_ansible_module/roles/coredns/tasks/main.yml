@@ -1,63 +1,160 @@
 ---
+- name: Check if kubectl is available
+  command: kubectl version --client
+  delegate_to: localhost
+  become: no
+  register: kubectl_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Fail if kubectl is not available
+  fail:
+    msg: "kubectl is not available on localhost. Please install kubectl and configure kubeconfig."
+  when: kubectl_check.failed
+  delegate_to: localhost
+  become: no
+
 - name: Check CoreDNS deployment
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    name: coredns
-    namespace: kube-system
+  shell: |
+    kubectl get deployment coredns -n kube-system -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
+  delegate_to: localhost
+  become: no
   register: coredns_deployment
-  delegate_to: "{{ groups['masters'][0] }}"
+  changed_when: false
 
-- name: Create CoreDNS ServiceAccount
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-serviceaccount.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+- name: Calculate CoreDNS cluster IP
+  set_fact:
+    # Extract the network part and add .10 as the last octet
+    coredns_cluster_ip: "{{ service_network_cidr.split('.')[0] }}.{{ service_network_cidr.split('.')[1] }}.0.10"
+  delegate_to: localhost
+  become: no
 
-- name: Create CoreDNS ClusterRole
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-clusterrole.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+- name: Debug - Show calculated cluster IP
+  debug:
+    msg: "CoreDNS cluster IP: {{ coredns_cluster_ip }}"
+  delegate_to: localhost
+  become: no
 
-- name: Create CoreDNS ClusterRoleBinding
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-clusterrolebinding.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+- name: Create CoreDNS manifests from templates
+  block:
+    - name: Create CoreDNS ServiceAccount
+      copy:
+        dest: "/tmp/coredns-serviceaccount.yaml"
+        content: "{{ lookup('template', 'coredns-serviceaccount.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
 
-- name: Create CoreDNS ConfigMap
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-configmap.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Create CoreDNS ClusterRole
+      copy:
+        dest: "/tmp/coredns-clusterrole.yaml"
+        content: "{{ lookup('template', 'coredns-clusterrole.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
 
-- name: Create CoreDNS Deployment
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-deployment.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Create CoreDNS ClusterRoleBinding
+      copy:
+        dest: "/tmp/coredns-clusterrolebinding.yaml"
+        content: "{{ lookup('template', 'coredns-clusterrolebinding.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
 
-- name: Create CoreDNS Service
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-service.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Create CoreDNS ConfigMap
+      copy:
+        dest: "/tmp/coredns-configmap.yaml"
+        content: "{{ lookup('template', 'coredns-configmap.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
 
-- name: Create CoreDNS Horizontal Pod Autoscaler
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'coredns-hpa.yaml.j2') | from_yaml }}"
-  delegate_to: "{{ groups['masters'][0] }}"
+    - name: Create CoreDNS Deployment
+      copy:
+        dest: "/tmp/coredns-deployment.yaml"
+        content: "{{ lookup('template', 'coredns-deployment.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Create CoreDNS Service
+      copy:
+        dest: "/tmp/coredns-service.yaml"
+        content: "{{ lookup('template', 'coredns-service.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Create CoreDNS Horizontal Pod Autoscaler
+      copy:
+        dest: "/tmp/coredns-hpa.yaml"
+        content: "{{ lookup('template', 'coredns-hpa.yaml.j2') }}"
+      delegate_to: localhost
+      become: no
+
+- name: Apply CoreDNS manifests
+  block:
+    - name: Apply CoreDNS ServiceAccount
+      command: kubectl apply -f /tmp/coredns-serviceaccount.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS ClusterRole
+      command: kubectl apply -f /tmp/coredns-clusterrole.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS ClusterRoleBinding
+      command: kubectl apply -f /tmp/coredns-clusterrolebinding.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS ConfigMap
+      command: kubectl apply -f /tmp/coredns-configmap.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS Deployment
+      command: kubectl apply -f /tmp/coredns-deployment.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS Service
+      command: kubectl apply -f /tmp/coredns-service.yaml
+      delegate_to: localhost
+      become: no
+
+    - name: Apply CoreDNS Horizontal Pod Autoscaler
+      command: kubectl apply -f /tmp/coredns-hpa.yaml
+      delegate_to: localhost
+      become: no
 
 - name: Wait for CoreDNS to be ready
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    name: coredns
-    namespace: kube-system
-  register: coredns_status
-  delegate_to: "{{ groups['masters'][0] }}"
-  until: coredns_status.resources[0].status.readyReplicas == coredns_replicas
+  shell: |
+    kubectl wait --for=condition=available --timeout=600s deployment/coredns -n kube-system
+  delegate_to: localhost
+  become: no
+  register: coredns_wait
   retries: 30
   delay: 10
+  until: coredns_wait.rc == 0
+
+- name: Verify CoreDNS deployment
+  command: kubectl get deployment coredns -n kube-system -o jsonpath='{.status.readyReplicas}'
+  delegate_to: localhost
+  become: no
+  register: coredns_status
+
+- name: Show CoreDNS status
+  debug:
+    msg: "CoreDNS ready replicas: {{ coredns_status.stdout }}"
+
+- name: Clean up temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  delegate_to: localhost
+  become: no
+  with_items:
+    - /tmp/coredns-serviceaccount.yaml
+    - /tmp/coredns-clusterrole.yaml
+    - /tmp/coredns-clusterrolebinding.yaml
+    - /tmp/coredns-configmap.yaml
+    - /tmp/coredns-deployment.yaml
+    - /tmp/coredns-service.yaml
+    - /tmp/coredns-hpa.yaml
+  ignore_errors: yes
