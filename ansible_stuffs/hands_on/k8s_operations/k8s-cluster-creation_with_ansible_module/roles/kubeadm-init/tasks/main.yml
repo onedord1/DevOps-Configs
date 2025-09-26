@@ -100,6 +100,52 @@
   delay: 10
   when: kubeadm_init.changed or master_join.changed
 
+- name: Stop control plane components
+  systemd:
+    name: kubelet
+    state: stopped
+  become: yes
+
+- name: Generate kube-apiserver manifest with resource limits
+  template:
+    src: kube-apiserver.yaml.j2
+    dest: /etc/kubernetes/manifests/kube-apiserver.yaml
+  become: yes
+
+- name: Generate kube-controller-manager manifest with resource limits
+  template:
+    src: kube-controller-manager.yaml.j2
+    dest: /etc/kubernetes/manifests/kube-controller-manager.yaml
+  become: yes
+
+- name: Generate kube-scheduler manifest with resource limits
+  template:
+    src: kube-scheduler.yaml.j2
+    dest: /etc/kubernetes/manifests/kube-scheduler.yaml
+  become: yes
+
+- name: Generate etcd manifest with resource limits
+  template:
+    src: etcd.yaml.j2
+    dest: /etc/kubernetes/manifests/etcd.yaml
+  become: yes
+
+- name: Start kubelet
+  systemd:
+    name: kubelet
+    state: started
+  become: yes
+
+- name: Wait for API server to be ready after applying resource limits
+  uri:
+    url: https://127.0.0.1:6443/healthz
+    method: GET
+    validate_certs: no
+  register: api_health
+  until: api_health.status == 200
+  retries: 30
+  delay: 10
+
 - name: Get join command for workers
   command: kubeadm token create --print-join-command
   register: worker_join_command

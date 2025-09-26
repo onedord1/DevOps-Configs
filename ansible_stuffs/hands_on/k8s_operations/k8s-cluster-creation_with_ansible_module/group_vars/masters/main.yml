@@ -18,16 +18,16 @@ etcd_initial_cluster: >
   master2=https://172.17.17.20:2380
 
 # Resource Limits
-kube_apiserver_cpu_requests: "1000m"
-kube_apiserver_memory_requests: "1Gi"
-kube_apiserver_cpu_limits: "1000m"
-kube_apiserver_memory_limits: "2Gi"
-kube_controller_manager_cpu_requests: "500m"
-kube_controller_manager_memory_requests: "1Gi"
-kube_scheduler_cpu_requests: "500m"
-kube_scheduler_memory_requests: "512Mi"
-etcd_cpu_requests: "1000m"
-etcd_memory_requests: "2Gi"
+kube_apiserver_cpu_requests: "200m"
+kube_apiserver_memory_requests: "300Mi"
+kube_apiserver_cpu_limits: "400m"
+kube_apiserver_memory_limits: "600Mi"
+kube_controller_manager_cpu_requests: "200m"
+kube_controller_manager_memory_requests: "400Mi"
+kube_scheduler_cpu_requests: "200m"
+kube_scheduler_memory_requests: "256Mi"
+etcd_cpu_requests: "300m"
+etcd_memory_requests: "300Mi"
 
 # Security
 kube_apiserver_cert_extra_sans:

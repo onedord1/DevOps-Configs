@@ -36,35 +36,35 @@ coredns_image: "registry.k8s.io/coredns/coredns"
 # Control Plane Components - High Traffic Scenario
 
 # kube-apiserver (Handles all API requests)
-kube_apiserver_cpu_requests: "1000m"      # 1 CPU core
-kube_apiserver_memory_requests: "1Gi"     # 2GB memory
-kube_apiserver_cpu_limits: "2000m"        # 4 CPU cores (burst capacity)
-kube_apiserver_memory_limits: "3Gi"       # 8GB memory (burst capacity)
+kube_apiserver_cpu_requests: "200m"      # 1 CPU core
+kube_apiserver_memory_requests: "200Mi"     # 2GB memory
+kube_apiserver_cpu_limits: "800m"        # 4 CPU cores (burst capacity)
+kube_apiserver_memory_limits: "800Mi"       # 8GB memory (burst capacity)
 
 # kube-controller-manager (Manages controllers)
-kube_controller_manager_cpu_requests: "500m"   # 0.5 CPU core
-kube_controller_manager_memory_requests: "500Mi"  # 1GB memory
-kube_controller_manager_cpu_limits: "2000m"     # 2 CPU cores
-kube_controller_manager_memory_limits: "3Gi"    # 4GB memory
+kube_controller_manager_cpu_requests: "200m"   # 0.5 CPU core
+kube_controller_manager_memory_requests: "200Mi"  # 1GB memory
+kube_controller_manager_cpu_limits: "500m"     # 2 CPU cores
+kube_controller_manager_memory_limits: "600Mi"    # 4GB memory
 
 # kube-scheduler (Pod scheduling)
-kube_scheduler_cpu_requests: "500m"      # 0.5 CPU core
+kube_scheduler_cpu_requests: "200m"      # 0.5 CPU core
 kube_scheduler_memory_requests: "512Mi"  # 512MB memory
-kube_scheduler_cpu_limits: "1000m"        # 2 CPU cores
-kube_scheduler_memory_limits: "2Gi"       # 2GB memory
+kube_scheduler_cpu_limits: "400m"        # 2 CPU cores
+kube_scheduler_memory_limits: "500Mi"       # 2GB memory
 
 # etcd (Distributed key-value store - CRITICAL for performance)
-etcd_cpu_requests: "1000m"               # 1 CPU core
-etcd_memory_requests: "1Gi"              # 2GB memory
-etcd_cpu_limits: "4000m"                 # 4 CPU cores
-etcd_memory_limits: "2Gi"                # 8GB memory
+etcd_cpu_requests: "200m"               # 1 CPU core
+etcd_memory_requests: "400Mi"              # 2GB memory
+etcd_cpu_limits: "400m"                 # 4 CPU cores
+etcd_memory_limits: "800Mi"                # 8GB memory
 etcd_quota_backend_bytes: "8589934592"   # 8GB storage limit
 
 # CoreDNS (Service discovery - High traffic scenarios)
-coredns_cpu_requests: "500m"             # 0.5 CPU core per replica
-coredns_memory_requests: "512Mi"         # 512MB memory per replica
-coredns_cpu_limits: "2000m"              # 2 CPU cores per replica
-coredns_memory_limits: "2Gi"             # 2GB memory per replica
+coredns_cpu_requests: "200m"             # 0.5 CPU core per replica
+coredns_memory_requests: "256Mi"         # 512MB memory per replica
+coredns_cpu_limits: "300m"              # 2 CPU cores per replica
+coredns_memory_limits: "600Mi"             # 2GB memory per replica
 
 # kube-proxy (Network proxy)
 kube_proxy_cpu_requests: "500m"          # 0.5 CPU core

@@ -93,38 +93,15 @@
   register: metallb_manifest_apply
   when: metallb_crd.stdout == 'not-found'
 
-- name: Debug - Show manifest application result
-  debug:
-    msg: "Manifest application result: {{ metallb_manifest_apply.stdout }}"
+- name: Wait for MetalLB controller pod to be ready
+  command: kubectl wait --for=condition=ready pod -l component=controller -n metallb-system --timeout=300s
+  delegate_to: localhost
+  become: no
+  register: metallb_controller_ready
+  retries: 3
+  delay: 10
+  until: metallb_controller_ready.rc == 0
   when: metallb_manifest_apply.changed
-
-# - name: Wait for MetalLB CRDs to be available
-#   block:
-#     - name: Wait for IPAddressPool CRD
-#       shell: |
-#         kubectl get crd addresspools.metallb.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
-#       delegate_to: localhost
-#       become: no
-#       register: addresspool_crd
-#       retries: 20
-#       delay: 10
-#       until: addresspool_crd.stdout == "addresspools.metallb.io"
-
-#     - name: Wait for L2Advertisement CRD
-#       shell: |
-#         kubectl get crd l2advertisements.metallb.io -o jsonpath='{.metadata.name}' 2>/dev/null || echo "not-found"
-#       delegate_to: localhost
-#       become: no
-#       register: l2advertisement_crd
-#       retries: 20
-#       delay: 10
-#       until: l2advertisement_crd.stdout == "l2advertisements.metallb.io"
-
-#     - name: Debug - Show CRD status
-#       debug:
-#         msg: |
-#           IPAddressPool CRD: {{ addresspool_crd.stdout }}
-#           L2Advertisement CRD: {{ l2advertisement_crd.stdout }}
 
 - name: Apply MetalLB ConfigMap
   command: kubectl apply -f /tmp/metallb-configmap.yaml
