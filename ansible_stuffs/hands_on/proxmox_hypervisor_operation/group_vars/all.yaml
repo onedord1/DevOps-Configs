@@ -1,19 +1,23 @@
+
 proxmox:
-  api_host: "{{ ansible_host }}"
-  api_user: "root@pam"
-  api_token_id: "your_token_id"
-  api_token_secret: "your_token_secret"
-  storage: "local"
+  storage: "local-lvm"
   bridge: "vmbr0"
-  image_url: "https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-amd64.img"
-  image_file: "/var/lib/vz/template/iso/ubuntu-20.04-server-cloudimg-amd64.img"
-  vm_id: 100
-  template_id: 101
-  vm_name: "ubuntu-template"
-  memory_mb: 2048
-  disk_size_gb: 10
-  user_name: "terraform_user"
-  user_realm: "pam"
-  role_name: "TerraformRole"
-  token_name: "TerraformToken"
-  privs: "VM.Config.Disk VM.Config.CDROM VM.Config.Network VM.Console VM.PowerMgmt"
+  
+# for ansible user to proxmox access
+ansible_api_user: "ansible@pam"
+ansible_api_token_id: "ansible_token"
+proxmox_api_role: PVEVMAdmin
+
+# create terraform user using ansible
+terraform_user: terraform
+terraform_realm: pam
+terraform_role: TerraformRole
+terraform_token_name: terraform_token
+terraform_privs: "VM.Allocate VM.Config.CDROM VM.Config.CPU VM.Config.Disk VM.Config.Memory VM.Config.Network VM.Config.Options VM.Console VM.PowerMgmt VM.Monitor"
+
+# common vm templates(can be overridden per environment)
+common_vm_settings:
+  cores: 2
+  memory: 2048
+  net0: virtio,bridge=vmbr0
+  cloudinit: true

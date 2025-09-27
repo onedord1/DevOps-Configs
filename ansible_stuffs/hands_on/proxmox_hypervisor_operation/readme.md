@@ -20,132 +20,93 @@ Your project directory should resemble the following structure:
 
 ```
 proxmox-vm-template-automation/
-├── inventory/
-│   └── hosts.yml
-├── playbook.yml
-└── roles/
-    └── create_vm_template/
-        └── tasks/
-            └── main.yml
+├── ansible.cfg
+├── ansible.log
+├── group_vars
+│   ├── all.yaml
+│   ├── dev.yaml
+│   ├── prod.yaml
+│   └── staging.yaml
+├── inventory
+│   ├── host.example
+│   └── hosts.yaml
+├── logs
+├── playbook.yaml
+├── proxmox-token-create.md
+├── readme.md
+├── roles
+│   ├── create_vm_template
+│   │   └── tasks
+│   │       └── main.yaml
+│   ├── download_template_image
+│   │   └── tasks
+│   │       └── main.yaml
+│   └── setup_terraform_user
+│       └── tasks
+│           └── main.yaml
+├── run_me.py
+└── terraform_token_token_output.json
 ```
 
-## 🔐 Creating a Proxmox API Token
+## 🔐 Creating a Proxmox API Token for Ansible
 
-To create an API token in Proxmox:
-
-1. Navigate to **Datacenter > Permissions > API Tokens** in the Proxmox web interface.
-2. Click **Add** and select the user (e.g., `root@pam`).
-3. Provide a **Token ID** (e.g., `ansible_pve_token`).
-4. Set the **Role** (e.g., `PVEVMAdmin`).
-5. Click **Add** to generate the token.
-6. Copy the **Token Secret** immediately; it will not be shown again.
+Refer to This [Doc](./proxmox-token-create.md)
 
 ---
 
 ## 🗂️ Inventory Configuration (`inventory/hosts.yml`)
 
-This YAML file defines the Proxmox host and necessary variables.
-
-```yaml
-all:
-  hosts:
-    proxmox:
-      ansible_host: your.proxmox.host
-      ansible_user: root
-      ansible_ssh_private_key_file: /path/to/your/private/key
-  vars:
-    proxmox_api_user: root@pam
-    proxmox_api_token_id: ansible_pve_token
-    proxmox_api_token_secret: your_api_token_secret
-    proxmox_api_host: https://your.proxmox.host:8006
-    proxmox_node: pve-node
-    proxmox_api_role: PVEVMAdmin
-    vm_templates:
-      - name: ubuntu-template
-        os: ubuntu
-        image_url: https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-amd64.img
-        image_name: ubuntu-20.04-server-cloudimg-amd64.img
-        vmid: 100
-        disk_size: 10G
-        cores: 2
-        memory: 2048
-        net0: virtio,bridge=vmbr0
-        storage: local-lvm
-        cloudinit: true
-      - name: fedora-template
-        os: fedora
-        image_url: https://download.fedoraproject.org/pub/fedora/linux/releases/34/Cloud/aarch64/images/Fedora-Cloud-Base-34-1.2.aarch64.qcow2
-        image_name: Fedora-Cloud-Base-34-1.2.aarch64.qcow2
-        vmid: 101
-        disk_size: 10G
-        cores: 2
-        memory: 2048
-        net0: virtio,bridge=vmbr0
-        storage: local-lvm
-        cloudinit: true
+This YAML file defines the Proxmox host and necessary variables. Adjust these variables for your environments
+```bash
+          ansible_host: <proxmox_host_IP>
+          ansible_user: root
+          ansible_ssh_private_key_file: <path/to/your_ssh_private_key>  #make sure your public key is attracted to proxmox hosts authorized_keys
+      vars:
+        env_name: dev
+        proxmox_node: <proxmox_node_name>
+        proxmox_api_host: <proxmox_host_IP>
+        proxmox_api_port: <porxmox_host_port>
+        ansible_api_token_secret: <token_from_upper_steps>
+        vm_templates:
+          - name: ubuntu-cloudimage-template
+            os: ubuntu
+            image_url: <link_to_the_img/iso>     #https://cloud-images.ubuntu.com/releases/plucky/release/ubuntu-25.04-server-cloudimg-amd64.img
+            image_name: <name_of_the_img/iso_which_is_dowmlaoded>   #ubuntu-25.04-server-cloudimg-amd64.img
+            vmid: <vm_id> #900000
+            disk_size: <desired_disk_size>   #10G
+            cores: "{{ common_vm_settings.cores }}"
+            memory: "{{ common_vm_settings.memory }}"
+            net0: "{{ common_vm_settings.net0 }}"
+            storage: "{{ proxmox.storage }}"
+            cloudinit: "{{ common_vm_settings.cloudinit }}"
 ```
-
-
 
 **Note**: Replace placeholders like `your.proxmox.host` and `/path/to/your/private/key` with your actual Proxmox server details and SSH private key path.
 
 ---
 
-## 🛠️ Playbook Configuration (`playbook.yml`)
+## 🛠️ Common Variables Configuration (`group_vars/all.yaml`)
 
-This YAML file orchestrates the execution of the `create_vm_template` role.
-
-```yaml
-- name: Create Proxmox VM Templates
-  hosts: proxmox
-  become: true
-  tasks:
-    - name: Include create_vm_template role
-      include_role:
-        name: create_vm_template
-      loop: "{{ vm_templates }}"
-      loop_control:
-        loop_var: template
-```
-
-
-
----
-
-## 🧩 Role Configuration (`roles/create_vm_template/tasks/main.yml`)
-
-This role defines the tasks to create VM templates in Proxmox.
+This YAML file holds all the common configs of the `create_vm_template` role. Adjust according to you needs.
 
 ```yaml
-- name: Download cloud image
-  ansible.builtin.get_url:
-    url: "{{ template.image_url }}"
-    dest: "/tmp/{{ template.image_name }}"
-  register: download_result
-  until: download_result is success
-  retries: 3
-  delay: 10
-
-- name: Create VM Template
-  community.general.proxmox_kvm:
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
-    api_host: "{{ proxmox_api_host }}"
-    node: "{{ proxmox_node }}"
-    vmid: "{{ template.vmid }}"
-    name: "{{ template.name }}"
-    cores: "{{ template.cores }}"
-    memory: "{{ template.memory }}"
-    net0: "{{ template.net0 }}"
-    disk:
-      size: "{{ template.disk_size }}"
-      storage: "{{ template.storage }}"
-    os: "{{ template.os }}"
-    cloudinit: "{{ template.cloudinit }}"
-    state: present
+proxmox:
+  storage: <your_ansible_storage_name>  #"local-lvm"
+  bridge: "vmbr0"
+ansible_api_user: <ansible_user_from_upper_steps>  #"ansible@pam"
+ansible_api_token_id: <ansible_token_id_from_upper_stage>  #"ansible_token"
+proxmox_api_role: PVEVMAdmin
+terraform_user: terraform
+terraform_realm: pam
+terraform_role: TerraformRole
+terraform_token_name: terraform_token
+terraform_privs: "VM.Allocate VM.Config.CDROM VM.Config.CPU VM.Config.Disk VM.Config.Memory VM.Config.Network VM.Config.Options VM.Console VM.PowerMgmt VM.Monitor"  #these roles are nessesary to operate ansible
+common_vm_settings:
+  cores: 2 #modify if needed
+  memory: 2048 #modify if needed
+  net0: virtio,bridge=vmbr0
+  cloudinit: true
 ```
-
 ---
 
 ## 🚀 Running the Playbook
@@ -153,7 +114,7 @@ This role defines the tasks to create VM templates in Proxmox.
 To execute the playbook:
 
 ```bash
-python3 run_me.py
+python3 run_me.py dev #dev means dev environments can be passed stage, qa, prod argument here but make sure to have the respective yaml in `group_vars` dir
 ```
 
 This command tells Ansible to use your specified inventory file and execute the tasks defined in `playbook.yml`.

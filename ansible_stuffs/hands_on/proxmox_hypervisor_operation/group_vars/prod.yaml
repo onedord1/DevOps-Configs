@@ -1,0 +1,5 @@
+environment_name: "Production"
+debug_mode: false
+log_level: "warn"
+backup_enabled: true
+monitoring_enabled: true

@@ -1,55 +1,52 @@
----
 - name: Create Proxmox User
-  community.general.proxmox_user:
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
-    api_host: "{{ proxmox_api_host }}"
-    user: "{{ proxmox_api_user }}"
-    password: "{{ proxmox_api_password }}"
-    state: present
+  command: "pveum user add {{ terraform_user }}@{{ terraform_realm }} --comment 'Terraform User'"
+  ignore_errors: yes
 
 - name: Create Proxmox Role
-  community.general.proxmox_role:
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
-    api_host: "{{ proxmox_api_host }}"
-    role: "{{ proxmox_api_role }}"
-    privileges:
-      - "VM.Allocate"
-      - "VM.Console"
-      - "VM.PowerMgmt"
-      - "VM.Config.CDROM"
-      - "VM.Config.HWType"
-      - "VM.Config.Options"
-      - "VM.Config.CPU"
-      - "VM.Config.Memory"
-      - "VM.Config.Disk"
-      - "VM.Config.Network"
-      - "VM.Config.Cloudinit"
-      - "VM.Monitor"
-      - "VM.Snapshot"
-      - "VM.Backup"
-      - "VM.Migrate"
-      - "VM.Clone"
-      - "VM.MoveDisk"
-      - "VM.SnapshotRollback"
-      - "VM.BackupRestore"
-    state: present
+  command: "pveum role add {{ terraform_role }} -privs '{{ terraform_privs }}'"
+  ignore_errors: yes
 
-- name: Create Proxmox API Token
-  community.general.proxmox_token:
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
-    api_host: "{{ proxmox_api_host }}"
-    token_id: "{{ proxmox_api_token_id }}"
-    role: "{{ proxmox_api_role }}"
-    state: present
+- name: Assign Role to User
+  command: "pveum acl modify / --user {{ terraform_user }}@{{ terraform_realm }} --roles {{ terraform_role }}"
+  ignore_errors: yes
+
+- name: Check if token exists
+  command: "pveum user token list {{ terraform_user }}@{{ terraform_realm }} --output-format json"
+  register: token_list_result
+  changed_when: false
+
+- name: Delete existing token if it exists
+  command: "pveum user token remove {{ terraform_user }}@{{ terraform_realm }} {{ terraform_token_name }}"
+  when: token_list_result.stdout | from_json | selectattr('tokenid', 'equalto', terraform_token_name) | list | count > 0
+
+- name: Create new Proxmox API Token
+  command: "pveum user token add {{ terraform_user }}@{{ terraform_realm }} {{ terraform_token_name }} --privsep 0"
   register: token_creation_result
 
-- name: Save token output to JSON file
+- name: Debug token creation output
+  debug:
+    var: token_creation_result.stdout
+  when: token_creation_result.changed
+
+- name: Extract token value using regex
+  set_fact:
+    token_value: "{{ token_creation_result.stdout | regex_search('value[│\\s]*([a-f0-9-]+)', '\\1') | first }}"
+  when: token_creation_result.changed
+
+- name: Create token info dictionary
+  set_fact:
+    token_info: {
+      "user": "{{ terraform_user }}@{{ terraform_realm }}",
+      "token_id": "{{ terraform_token_name }}",
+      "full_token_id": "{{ terraform_user }}@{{ terraform_realm }}!{{ terraform_token_name }}",
+      "token_value": "{{ token_value }}"
+    }
+  when: token_creation_result.changed
+
+- name: Save token info to JSON file on localhost
   ansible.builtin.copy:
-    content: "{{ token_creation_result | to_json }}"
-    dest: "/tmp/{{ proxmox_api_token_id }}_token_output.json"
+    content: "{{ token_info | to_json }}"
+    dest: "./{{ terraform_token_name }}_token_output.json"
+  delegate_to: localhost
+  when: token_creation_result.changed
+  become: no

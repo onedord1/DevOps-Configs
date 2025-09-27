@@ -1,4 +1,3 @@
----
 - name: Download cloud image
   ansible.builtin.get_url:
     url: "{{ template.image_url }}"
@@ -8,22 +7,44 @@
   retries: 3
   delay: 10
 
-- name: Create VM from image
+- name: Create VM without disk
   community.general.proxmox_kvm:
     node: "{{ proxmox_node }}"
     vmid: "{{ template.vmid }}"
     name: "{{ template.name }}"
-    cores: "{{ template.cores }}"
     memory: "{{ template.memory }}"
-    net0: "{{ template.net0 }}"
-    disk: "{{ template.disk_size }}"
-    storage: "{{ template.storage }}"
-    image: "/tmp/{{ template.image_name }}"
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
+    cores: "{{ template.cores }}"
+    net:
+      net0: "{{ template.net0 }}"
+    scsihw: "{{ template.scsihw | default('virtio-scsi-pci') }}"
+    cpu: "{{ template.cpu | default('host') }}"
+    api_user: "{{ ansible_api_user }}"
+    api_token_id: "{{ ansible_api_token_id }}"
+    api_token_secret: "{{ ansible_api_token_secret }}"
     api_host: "{{ proxmox_api_host }}"
+    api_port: "{{ proxmox_api_port }}"
+    validate_certs: false
   register: vm_creation_result
+
+- name: Import cloud image as VM disk
+  command: "qm importdisk {{ template.vmid }} /tmp/{{ template.image_name }} {{ template.storage }}"
+  register: import_result
+
+- name: Attach the imported disk to VM
+  command: "qm set {{ template.vmid }} --scsi0 {{ template.storage }}:vm-{{ template.vmid }}-disk-0"
+
+- name: Add cloudinit drive
+  command: "qm set {{ template.vmid }} --ide2 {{ template.storage }}:cloudinit"
+
+- name: Configure boot order
+  command: "qm set {{ template.vmid }} --boot c --bootdisk scsi0"
+
+- name: Configure serial console
+  command: "qm set {{ template.vmid }} --serial0 socket --vga serial0"
+
+- name: Resize disk if specified
+  command: "qm resize {{ template.vmid }} scsi0 {{ template.disk_size }}"
+  when: template.disk_size is defined
 
 - name: Convert VM to template
   community.general.proxmox_kvm:
@@ -31,13 +52,10 @@
     vmid: "{{ template.vmid }}"
     name: "{{ template.name }}"
     state: template
-    api_user: "{{ proxmox_api_user }}"
-    api_token_id: "{{ proxmox_api_token_id }}"
-    api_token_secret: "{{ proxmox_api_token_secret }}"
+    api_user: "{{ ansible_api_user }}"
+    api_token_id: "{{ ansible_api_token_id }}"
+    api_token_secret: "{{ ansible_api_token_secret }}"
     api_host: "{{ proxmox_api_host }}"
+    api_port: "{{ proxmox_api_port }}"
+    validate_certs: false
   register: template_creation_result
-
-- name: Save output to JSON file
-  ansible.builtin.copy:
-    content: "{{ {'vm_creation': vm_creation_result, 'template_creation': template_creation_result} | to_json }}"
-    dest: "/tmp/{{ template.name }}_creation_output.json"

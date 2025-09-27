@@ -1,36 +1,28 @@
 all:
-  hosts:
-    proxmox:
-      ansible_host: 192.168.1.100
-      ansible_user: root
-      ansible_ssh_private_key_file: /path/to/your/local/private/key
-  vars:
-    proxmox_api_user: root@pam
-    proxmox_api_token_id: ansible_pve_token
-    proxmox_api_token_secret: your_api_token_secret
-    proxmox_api_host: https://192.168.1.100:8006
-    proxmox_node: pve-node
-    proxmox_api_role: PVEVMAdmin
-    vm_templates:
-      - name: ubuntu-template
-        os: ubuntu
-        image_url: https://cloud-images.ubuntu.com/releases/20.04/release/ubuntu-20.04-server-cloudimg-amd64.img
-        image_name: ubuntu-20.04-server-cloudimg-amd64.img
-        vmid: 100
-        disk_size: 10G
-        cores: 2
-        memory: 2048
-        net0: virtio,bridge=vmbr0
-        storage: local-lvm
-        cloudinit: true
-      - name: fedora-template
-        os: fedora
-        image_url: https://download.fedoraproject.org/pub/fedora/linux/releases/34/Cloud/aarch64/images/Fedora-Cloud-Base-34-1.2.aarch64.qcow2
-        image_name: Fedora-Cloud-Base-34-1.2.aarch64.qcow2
-        vmid: 101
-        disk_size: 10G
-        cores: 2
-        memory: 2048
-        net0: virtio,bridge=vmbr0
-        storage: local-lvm
-        cloudinit: true
+  children:
+    dev:
+      hosts:
+        proxmox-dev:
+          ansible_host: 172.17.17.17
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      vars:
+        env_name: dev
+        proxmox_node: aes
+        proxmox_api_host: 172.17.17.17
+        proxmox_api_port: 8006
+        ansible_api_token_secret: "31a9-c2b0-4098-8ac0-859ac"
+        
+        # Dev-specific VM templates
+        vm_templates:
+          - name: ubuntu-cloudimage-template
+            os: ubuntu
+            image_url: https://cloud-images.ubuntu.com/releases/plucky/release/ubuntu-25.04-server-cloudimg-amd64.img
+            image_name: ubuntu-25.04-server-cloudimg-amd64.img
+            vmid: 90000
+            disk_size: 10G
+            cores: "{{ common_vm_settings.cores }}"
+            memory: "{{ common_vm_settings.memory }}"
+            net0: "{{ common_vm_settings.net0 }}"
+            storage: "{{ proxmox.storage }}"
+            cloudinit: "{{ common_vm_settings.cloudinit }}"

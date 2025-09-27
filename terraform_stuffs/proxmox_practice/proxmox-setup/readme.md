@@ -23,7 +23,7 @@ This repository contains an enterprise-grade script for setting up Proxmox VM te
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-org/proxmox-setup.git
+   git clone https://github.com/onedord1/DevOps-Configs/terraform_stuffs/proxmox_practice/proxmox-setup.git
    cd proxmox-setup
    ```
 

@@ -1,26 +1,63 @@
 ---
 - name: Create Proxmox VM Templates
-  hosts: proxmox
+  hosts: "{{ target_environment | default('dev') }}"
   become: true
   tasks:
-    - name: Include download_image role
+    - name: Install required Python packages
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-dev
+          - build-essential
+          - python3-venv
+        update_cache: yes
+        state: present
+
+    - name: Create virtual environment for Ansible modules
+      ansible.builtin.command:
+        cmd: python3 -m venv /opt/ansible-venv
+        creates: /opt/ansible-venv
+      register: venv_created
+
+    - name: Install required Python libraries in virtual environment
+      ansible.builtin.pip:
+        name:
+          - proxmoxer>=2.0
+          - requests
+        virtualenv: /opt/ansible-venv
+        state: present
+
+    - name: Set ansible_python_interpreter for this host
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: /opt/ansible-venv/bin/python
+
+    - name: Download The Cloud Images
       include_role:
         name: download_template_image
       loop: "{{ vm_templates }}"
       loop_control:
         loop_var: template
 
-    - name: Include create_vm_template role
+    - name: Create Template
       include_role:
         name: create_vm_template
       loop: "{{ vm_templates }}"
       loop_control:
         loop_var: template
 
-- name: Setup Proxmox User, Role, and Token
-  hosts: proxmox
+- name: Setup Terraform User, Role, and Token
+  hosts: "{{ target_environment | default('dev') }}"
   become: true
   tasks:
-    - name: Include setup_user_role_token role
+    - name: Terraform User Setup & Role Associations
       include_role:
         name: setup_terraform_user
+
+- name: Cleanup Virtual Environment
+  hosts: "{{ target_environment | default('dev') }}"
+  become: true
+  tasks:
+    - name: Cleanup virtual environment
+      ansible.builtin.file:
+        path: /opt/ansible-venv
+        state: absent
