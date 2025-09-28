@@ -334,21 +334,23 @@ try:
     log('Creating Python virtual environment...', Colors.OKCYAN)
     run_command(['python3', '-m', 'venv', venv_dir])
 
-    # Activate virtual environment
-    activate_script = os.path.join(venv_dir, 'bin', 'activate')
-    if not os.path.exists(activate_script):
-        raise FileNotFoundError(f'Activation script not found: {activate_script}')
+    # Get paths to executables in the virtual environment
+    venv_python = os.path.join(venv_dir, 'bin', 'python')
+    venv_pip = os.path.join(venv_dir, 'bin', 'pip')
+    venv_ansible_galaxy = os.path.join(venv_dir, 'bin', 'ansible-galaxy')
+    venv_ansible_playbook = os.path.join(venv_dir, 'bin', 'ansible-playbook')
     
-    log('Activating virtual environment...', Colors.OKCYAN)
-    subprocess.run(f'source {activate_script} && pip install --upgrade pip', shell=True, check=True)
+    # Upgrade pip
+    log('Upgrading pip in virtual environment...', Colors.OKCYAN)
+    run_command([venv_pip, 'install', '--upgrade', 'pip'])
 
     # Install required Python packages
     log('Installing required Python packages...', Colors.OKCYAN)
-    subprocess.run(f'source {activate_script} && pip install ansible proxmoxer requests', shell=True, check=True)
+    run_command([venv_pip, 'install', 'ansible', 'proxmoxer', 'requests'])
 
     # Install Ansible collection
     log('Installing Ansible collection: community.general...', Colors.OKCYAN)
-    subprocess.run(f'source {activate_script} && ansible-galaxy collection install community.general', shell=True, check=True)
+    run_command([venv_ansible_galaxy, 'collection', 'install', 'community.general'])
 
     # Run Ansible playbook with custom output processing
     log(f'Running Ansible playbook for environment: {Colors.BOLD}{environment}{Colors.ENDC}...', Colors.OKCYAN)
@@ -368,8 +370,7 @@ try:
     
     # Run playbook and capture output
     process = subprocess.Popen(
-        f'source {activate_script} && ansible-playbook {playbook_path} --extra-vars "target_environment={environment}"',
-        shell=True,
+        [venv_ansible_playbook, playbook_path, '--extra-vars', f'target_environment={environment}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
