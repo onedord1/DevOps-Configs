@@ -1,0 +1,11 @@
+FROM docker:24.0.5-cli
+ENV TZ="Asia/Dhaka" \
+    LC_TIME="en_US.UTF-8"
+RUN apk add --no-cache tzdata git libc6-compat curl bash && \
+    ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo "$TZ" > /etc/timezone && \
+    rm -rf /var/cache/apk/*
+ENV LANG="en_US.UTF-8" \
+    LANGUAGE="en_US:en"
+SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
+CMD ["bash"]

@@ -1,0 +1,15 @@
+FROM alpine:3.19
+RUN apk add --no-cache \
+    git \
+    curl \
+    bash \
+    tzdata \
+    grep
+ENV TZ="Asia/Dhaka"
+ENV LC_TIME="en_US.UTF-8"
+RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo "$TZ" > /etc/timezone
+RUN git config --global http.sslVerify false && \
+    git config --global user.email "devops@quickops.io" && \
+    git config --global user.name "GitLab CI"
+CMD ["/bin/sh"]
