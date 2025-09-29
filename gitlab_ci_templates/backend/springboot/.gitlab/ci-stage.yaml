@@ -25,19 +25,12 @@ sonarqube-analysis:
 
 image-build:
   stage: build
-  image: registry.cloudaes.com/base-images/docker:24.0.5-cli
+  image: registry.cloudaes.com/base-images/aes-docker:24.0.5-cli
   needs:
     - sonarqube-analysis
   resource_group: stage
   services:
     - docker:24.0.5-dind
-  variables:
-    TZ: "Asia/Dhaka"
-    LC_TIME: "en_US.UTF-8"
-  before_script:
-    - apk add --no-cache tzdata git libc6-compat curl bash
-    - ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
-    - echo "$TZ" > /etc/timezone
   script:
     - |
       /bin/bash <<'EOF'
@@ -73,18 +66,8 @@ image-build:
 
 update-manifest:
   stage: deploy
-  image: registry.cloudaes.com/base-images/bitnami/git:latest
+  image: registry.cloudaes.com/base-images/aes-git:v1.0.2
   resource_group: stage
-  variables:
-    TZ: "Asia/Dhaka"
-    LC_TIME: "en_US.UTF-8"
-  before_script:
-    - apt-get update && apt-get install -y curl bash tzdata
-    - ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
-    - echo "$TZ" > /etc/timezone
-    - git config --global http.sslVerify false
-    - git config --global user.email "devops@quickops.io"
-    - git config --global user.name "GitLab CI"
   script:
     - |
       /bin/bash <<'EOF'
