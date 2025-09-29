@@ -11,14 +11,14 @@ spec:
       ssh:
         address: 192.168.1.42
         port: 9000  # Controller node IP
-        user: master
+        user: master # user that has sudo access
         keyPath: ~/.ssh/id_ed25519
       # Copy MetalLB IPPool/L2Advertisement manifest to the k0s manifest directory on the controller
       hooks:
         apply:
           after:
-            - apt-get update
-            - apt-get install -y nfs-common
+            - sudo apt-get update
+            - sudo apt-get install -y nfs-common
       files:
         - name: metallb-config
           src: ./metallb-config.yaml      # Local file with MetalLB resources
@@ -29,13 +29,13 @@ spec:
       ssh:
         address: 192.168.1.47  # Worker node IP
         port: 9001
-        user: master
+        user: master #need sudo access
         keyPath: ~/.ssh/id_ed25519
       hooks:
         apply:
           after:
-            - apt-get update
-            - apt-get install -y nfs-common
+            - sudo apt-get update
+            - sudo apt-get install -y nfs-common
 
     - role: worker
       ssh:
@@ -46,8 +46,8 @@ spec:
       hooks:
         apply:
           after:
-            - apt-get update
-            - apt-get install -y nfs-common
+            - sudo apt-get update
+            - sudo apt-get install -y nfs-common
 
     - role: worker
       ssh:
@@ -58,8 +58,8 @@ spec:
       hooks:
         after:
           before:
-            - apt-get update
-            - apt-get install -y nfs-common
+            - sudo apt-get update
+            - sudo apt-get install -y nfs-common
   k0s:
     version: v1.32.4+k0s.0  # Use the latest stable k0s version
     config:
