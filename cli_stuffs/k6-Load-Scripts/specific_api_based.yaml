@@ -1,0 +1,55 @@
+import http from "k6/http";
+import { check } from "k6";
+
+export const options = {
+  vus: 100,
+  duration: '5m', // Increase duration to observe scaling
+};
+
+const BASE_URL = 'http://172.17.17.23/bmdsalesbe/api/v1/visit/create';
+
+export default function () {
+  const url = BASE_URL;
+  const payload = JSON.stringify({
+    visitType: "Retailer",
+    followupDate: "18-10-2025",
+    subStageActivityList: [],
+    stockList: [],
+    visitPhoto: null,
+    productPhoto: null,
+    feedback: "ABGFDjj",
+    retailerId: 1
+  });
+
+  const params = {
+    headers: {
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Encoding': 'gzip, deflate',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Authorization': 'Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJiZG9AZGVtby5jb20iLCJyb2xlcyI6IkJETyIsImlhdCI6MTc1OTc0NzQ0NSwiZXhwIjoxODE5NzQ3NDQ1fQ.iQjfHJb1r9vUOmgHIE0a3RV1LBGnxcfuZS3w_HgWJER-HJl22Ha8GvKoELaYYJRbvvm1_T74sle4c1HFEqvVKQ',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Content-Type': 'application/json',
+      'Origin': 'http://172.17.17.23',
+      'Pragma': 'no-cache',
+      'Priority': 'u=0',
+      'Referer': 'http://172.17.17.23/activities/visits/today',
+      'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0',
+      'traceparent': '00-89a2abace22f23f9d2f157deafd4b93b-a6f456e303cfdeea-01'
+    }
+  };
+
+  let resp = http.post(url, payload, params);
+
+  check(resp, {
+    'endpoint was successful': (resp) => {
+      if (resp.status === 200) {
+        console.log(`PASS! ${url}`);
+        return true;
+      } else {
+        console.error(`FAIL! status-code: ${resp.status}`);
+        return false;
+      }
+    }
+  });
+}
