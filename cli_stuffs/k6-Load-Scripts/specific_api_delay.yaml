@@ -2,7 +2,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 export const options = {
-  vus: 100,
+  vus: 100, //adjust the virtual users
   duration: '5m', // Increase duration to observe scaling
 };
 
@@ -44,7 +44,7 @@ export default function () {
     check(resp, {
       'endpoint was successful': (resp) => {
         if (resp.status === 200) {
-          console.log(`PASS! ${url}`);
+          console.log(`PASS! ${url} at ${new Date().toISOString()}`);
           return true;
         } else {
           console.error(`FAIL! status-code: ${resp.status}`);
@@ -53,6 +53,8 @@ export default function () {
       }
     });
 
+    // Wait for 10 seconds before sending the next request
     sleep(10);
+    console.log(`Waiting for 10 seconds before next request at ${new Date().toISOString()}`);
   }
 }
