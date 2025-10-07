@@ -1,0 +1,22 @@
+{
+  "name": "k6-performance-tests",
+  "version": "1.0.0",
+  "description": "K6 performance testing suite.",
+  "main": "index.js",
+  "scripts": {
+    "run-all": "node scripts/run-all.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/k6": "^0.47.0"
+  },
+  "keywords": [
+    "k6",
+    "performance-testing",
+    "load-testing"
+  ],
+  "author": "",
+  "license": "ISC"
+}
