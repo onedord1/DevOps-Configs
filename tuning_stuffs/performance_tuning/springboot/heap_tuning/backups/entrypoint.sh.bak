@@ -1,0 +1,78 @@
+#!/bin/bash
+CONTAINER_MEMORY_BYTES=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo 524288000)
+CONTAINER_MEMORY_MB=$((CONTAINER_MEMORY_BYTES / 1024 / 1024))
+
+echo "Container detected memory: ${CONTAINER_MEMORY_MB}MB"
+SOFT_MAX_HEAP=$((CONTAINER_MEMORY_MB * 10 / 100))  # 25% for idle
+MAX_HEAP=$((CONTAINER_MEMORY_MB * 50 / 100))       # Reduced to 40% max for peaks to leave more room for Metaspace
+
+# Ensures minimum values to prevent application OutofMemoryError
+[ $SOFT_MAX_HEAP -lt 96 ] && SOFT_MAX_HEAP=96     # Set minimum to 96MB
+[ $MAX_HEAP -lt 192 ] && MAX_HEAP=192              # Set minimum to 192MB
+
+echo "========================================="
+echo "Optimized Memory Configuration:"
+echo "Container Memory: ${CONTAINER_MEMORY_MB}MB"
+echo "Idle Target Heap: ${SOFT_MAX_HEAP}MB"
+echo "Peak Max Heap: ${MAX_HEAP}MB"
+echo "Available for Non-Heap: $((CONTAINER_MEMORY_MB - MAX_HEAP))MB"
+echo "========================================="
+echo "Behavior: Starts at ${SOFT_MAX_HEAP}MB, grows to ${MAX_HEAP}MB during user activity"
+echo "Memory releases back to OS when idle"
+
+# Add memory debugging
+echo "=== MEMORY DEBUG INFO ==="
+echo "Container memory limit in MB: ${CONTAINER_MEMORY_MB}MB"
+echo ""
+echo "Memory usage before starting Java:"
+free -h
+echo ""
+echo "Process memory usage:"
+ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%mem | head -10
+echo "=== END MEMORY DEBUG INFO ==="
+
+#final calculated values would be used here
+exec java \
+    -XX:+UseZGC -XX:+ZGenerational -XX:+UseContainerSupport \
+    -Xms${SOFT_MAX_HEAP}m -XX:SoftMaxHeapSize=${SOFT_MAX_HEAP}m -Xmx${MAX_HEAP}m \
+    -XX:+ZProactive \
+    -XX:+ZUncommit \
+    -XX:ZUncommitDelay=30 \
+    -Xss256k \
+    -XX:+UseStringDeduplication \
+    -XX:+CompactStrings \
+    -XX:+UseCompressedOops \
+    -XX:+UseCompressedClassPointers \
+    -XX:MetaspaceSize=96m \
+    -XX:MaxMetaspaceSize=192m \
+    -XX:CompressedClassSpaceSize=32m \
+    -XX:MaxDirectMemorySize=16m \
+    -XX:ReservedCodeCacheSize=24m \
+    -XX:+HeapDumpOnOutOfMemoryError \
+    -XX:HeapDumpPath=/tmp/heap-dumps \
+    -XX:NativeMemoryTracking=summary \
+    -XX:+UnlockDiagnosticVMOptions \
+    -XX:+PrintNMTStatistics \
+    -Xlog:gc*,gc+heap=debug:file=/tmp/gc.log:time,uptime,level,tags:filecount=5,filesize=10M \
+    -javaagent:/opt/opentelemetry-javaagent.jar \
+    -Dotel.traces.exporter=otlp \
+    -Dotel.metrics.exporter=otlp \
+    -Dotel.logs.exporter=otlp \
+    -Dotel.exporter.otlp.endpoint=https://localhost:9317 \
+    -Dotel.exporter.otlp.protocol=grpc \
+    -Dotel.exporter.otlp.headers=Authorization=Basic%20$(echo -n ${SIGNOZ_USERNAME}:${SIGNOZ_PASSWORD} | base64 -w 0) \
+    -Dotel.sampler.probability=0.3 \
+    -Dotel.resource.attributes=service.name=${SERVICE_NAME:-qa-bmdsalesbe},deployment.environment=${DEPLOYMENT_ENV:-qa} \
+    -Dotel.instrumentation.jdbc-datasource.enabled=true \
+    -Dotel.instrumentation.hikaricp.enabled=true \
+    -Dotel.instrumentation.spring-data.enabled=true \
+    -Dotel.instrumentation.jdbc.statement-sanitizer.enabled=true \
+    -Dotel.instrumentation.logback-appender.enabled=true \
+    -Dotel.instrumentation.jdbc.experimental-span-attributes=true \
+    -Dotel.instrumentation.spring-jdbc.enabled=true \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dspring.servlet.multipart.max-file-size=5MB \
+    -Dspring.servlet.multipart.max-request-size=5MB \
+    -Djdk.nio.maxCachedBufferSize=262144 \
+    -Dsun.nio.ch.maxUpdateArraySize=8192 \
+    -jar app.jar

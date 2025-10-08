@@ -1,0 +1,120 @@
+server.port=9009
+spring.application.name=disbursement-be
+
+# Database Configuration
+spring.datasource.url=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useUnicode=yes&characterEncoding=UTF-8&characterSetResults=UTF-8&serverTimezone=Asia/Dhaka
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+
+# Hibernate Configuration - SIMPLIFIED
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.defer-datasource-initialization=true
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show_sql=false
+spring.jpa.properties.hibernate.format_sql=false
+
+# Simplified Hikari Configuration
+spring.datasource.hikari.minimumIdle=1
+spring.datasource.hikari.maximumPoolSize=3
+spring.datasource.hikari.idleTimeout=60000
+spring.datasource.hikari.poolName=SpringBootJPAHikariCP
+spring.datasource.hikari.maxLifetime=1800000
+spring.datasource.hikari.connectionTimeout=30000
+
+# SQL Initialization
+spring.sql.init.mode=always
+spring.sql.init.data-locations=classpath:db/changelog/scripts/init/init-banks.sql,\
+  classpath:db/changelog/scripts/init/init-roles.sql,\
+  classpath:db/changelog/scripts/init/init-menu.sql,\
+  classpath:db/changelog/scripts/init/init-users.sql,\
+  classpath:db/changelog/scripts/init/init-orgs.sql,\
+  classpath:db/changelog/scripts/init/init-competitor.sql,\
+  classpath:db/changelog/scripts/init/init-product_acl.sql,\
+  classpath:db/changelog/scripts/init/init-product_ail.sql,\
+  classpath:db/changelog/scripts/init/init-sku.sql,\
+  classpath:db/changelog/scripts/init/init-visit-categories.sql,\
+  classpath:db/changelog/scripts/init/init-visit-phases.sql,\
+  classpath:db/changelog/scripts/patches/update_menu.sql,\
+  classpath:db/changelog/scripts/init/init-visit-stages.sql,\
+  classpath:db/changelog/scripts/init/init-brands.sql,\
+  classpath:db/changelog/scripts/patches/sku-update.sql
+
+# File upload size Limit
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=5MB
+
+# Corteza Configuration
+corteza.beOtherTerritorySimpleListModule=OTHER_TERRITORY_SIMPLE_LIST
+corteza.bmdSuperAdminUsername=superadmin@test.com
+corteza.baseUrl=http://172.17.19.53
+corteza.authEndpoint=${corteza.baseUrl}/auth/oauth2/token
+corteza.clientId=authenticate
+corteza.clientSecret=Z7ibJeEZsHIKWEW0L9cDJEFXy1FWAyVp51FVEHKEqgQ5fpbZa7vrSqTGWibxu2dA
+corteza.composeUrl=${corteza.baseUrl}/api/compose
+corteza.nationModuleId=439960009892626433
+corteza.zoneModuleId=437510195497140225
+corteza.regionModuleId=437510195539279873
+corteza.areaModuleId=417238969161416705
+corteza.territoryModuleId=417238969168953345
+corteza.bdTerritoryModuleId=439564941989576705
+corteza.namespaceId=417238968991809537
+corteza.upazillaModuleId=417238969137627137
+corteza.districtModuleId=417238969131073537
+corteza.bazaarModuleId=441896009697853441
+corteza.dealerModuleId=417238969303367681
+corteza.engineerModuleId=439860512428130305
+corteza.gmReg=420541513257713665
+corteza.agmReg=420541513223634945
+corteza.zsmReg=423164150317580289
+corteza.asmReg=420541513095839745
+corteza.srReg=417238969279315969
+corteza.bdoReg=437787082908237825
+corteza.bdLeadReg=441995613869965313
+corteza.croReg=443607070772428801
+corteza.endUserModuleId=443607071024939009
+
+jwt.signing.key.secret=j6APsyPk2KFxnYRksYer8pUWAjR7Ho8U1
+jwt.token.expiration.in.seconds=60000000
+
+bmdSales.frontend-url=http://172.17.17.23
+
+upload-dir=/uploads
+
+# Logging Configuration - SIMPLIFIED
+logging.structured.format.console=ecs
+logging.level.root=WARN
+logging.level.org.springframework=WARN
+logging.level.org.hibernate=WARN
+logging.level.org.hibernate.SQL=ERROR
+
+# Liquibase Configuration
+spring.liquibase.change-log=classpath:db/changelog/master.yaml
+spring.liquibase.enabled=false
+
+# OpenAPI Configuration
+springdoc.api-docs.enabled=true
+springdoc.api-docs.path=/v3/api-docs
+springdoc.swagger-ui.enabled=true
+springdoc.swagger-ui.operationsSorter=method
+springdoc.swagger-ui.tagsSorter=alpha
+springdoc.swagger-ui.disable-swagger-default-url=true
+springdoc.swagger-ui.url=/bmdsalesbe/v3/api-docs
+springdoc.swagger-ui.config-url=/bmdsalesbe/v3/api-docs/swagger-config
+
+# Jackson Configuration
+spring.jackson.date-format=yyyy-MM-dd HH:mm:ss
+spring.jackson.time-zone=Asia/Dhaka
+spring.jackson.serialization.write-dates-as-timestamps=false
+
+# Spring Boot Performance Optimizations
+spring.main.lazy-initialization=true
+
+# Tomcat Thread Optimization
+server.tomcat.max-threads=20
+server.tomcat.min-spare-threads=3
+server.tomcat.accept-count=30
+server.tomcat.connection-timeout=5000
+
+# Actuator Configuration
+management.endpoints.enabled-by-default=false
+management.endpoint.health.enabled=true
