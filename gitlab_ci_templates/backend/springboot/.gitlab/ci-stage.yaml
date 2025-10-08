@@ -12,7 +12,7 @@ sonarqube-analysis:
   variables:
     MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
   script:
-    - mvn clean install -DskipTests=true sonar:sonar -Dsonar.projectKey=bmd-sales-be-dev -Dsonar.projectName=BMD-Sales-Backend-Dev -Dsonar.host.url=$SONAR_URL -Dsonar.token=$SONAR_TOKEN
+    - mvn -B -V -e clean verify sonar:sonar -Dsonar.projectKey=bmd-sales-be-dev -Dsonar.projectName=BMD-Sales-Backend-Dev -Dsonar.host.url=$SONAR_URL -Dsonar.token=$SONAR_TOKEN '-Dsonar.coverage.jacoco.xmlReportPaths=**/target/site/jacoco/jacoco.xml' '-Dsonar.junit.reportPaths=**/target/surefire-reports'
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_APPROVED != "true"'
       when: always
