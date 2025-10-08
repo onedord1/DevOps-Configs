@@ -6,8 +6,6 @@ import { BASE_URL, SUPER_ADMIN_USERNAME, SUPER_ADMIN_PASSWORD } from '../../conf
 export function getSuperAdminToken() {
   log('Attempting to authenticate as Super Admin...');
   const url = `${BASE_URL}/authenticate`;
-
-  // The payload must be form-encoded
   const payload = `username=${SUPER_ADMIN_USERNAME}&password=${SUPER_ADMIN_PASSWORD}`;
   const params = {
     headers: {
@@ -20,7 +18,7 @@ export function getSuperAdminToken() {
 
   if (!success) {
     logError('Authentication failed. Aborting test.');
-    return null; // This will cause the test to fail gracefully
+    return null;
   }
 
   const responseBody = JSON.parse(response.body);
