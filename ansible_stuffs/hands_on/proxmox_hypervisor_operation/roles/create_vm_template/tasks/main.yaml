@@ -31,7 +31,7 @@
   register: import_result
 
 - name: Attach the imported disk to VM
-  command: "qm set {{ template.vmid }} --scsi0 {{ template.storage }}:vm-{{ template.vmid }}-disk-0"
+  command: "qm set {{ template.vmid }} --scsi0 {{ template.storage }}:vm-{{ template.vmid }}-disk-0.qcow2"
 
 - name: Add cloudinit drive
   command: "qm set {{ template.vmid }} --ide2 {{ template.storage }}:cloudinit"
