@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-postgres-init-sql
+  namespace: kong
+data:
+  01-init-kong.sql: |
+    CREATE DATABASE kong;
+    CREATE USER kong WITH PASSWORD 'kongPass1234';
+    CREATE USER kong_admin WITH PASSWORD 'kongPass1234' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+    \c kong;
+    GRANT CREATE ON DATABASE kong TO kong_admin;
+    GRANT ALL PRIVILEGES ON SCHEMA public TO kong_admin;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO kong_admin;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO kong_admin;
+    GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO kong_admin;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO kong_admin;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO kong_admin;
+    GRANT CONNECT ON DATABASE kong TO kong;
+    GRANT USAGE ON SCHEMA public TO kong;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO kong;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO kong;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kong;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO kong;
+    
+    -- Verify setup
+    \echo 'Kong database initialization completed successfully'
+    \du
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-postgres-secrets
+  namespace: kong
+type: Opaque
+data:
+  POSTGRES_USER: cG9zZ3Jlcw==  # postgres
+  POSTGRES_PASSWORD: a29uZ1Bhc3MxMjM0  # kongPass1234
+  POSTGRES_DB: cG9zZ3Jlcw==  # postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-postgres
+  namespace: kong
+spec:
+  selector:
+    app: kong-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kong-postgres
+  namespace: kong
+spec:
+  serviceName: kong-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-postgres
+  template:
+    metadata:
+      labels:
+        app: kong-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:17
+        envFrom:
+        - secretRef:
+            name: kong-postgres-secrets
+        env:
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: kong-postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-sql
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: init-sql
+        configMap:
+          name: kong-postgres-init-sql
+  volumeClaimTemplates:
+  - metadata:
+      name: kong-postgres-data
+    spec:
+      storageClassName: longhorn
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi

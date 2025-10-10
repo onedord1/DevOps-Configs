@@ -1,0 +1,38 @@
+ingressController:
+  enabled: false
+
+image:
+  repository: kong/kong-gateway
+  tag: "3.12"
+
+secretVolumes:
+  - kong-cluster-cert
+
+enterprise:
+  enabled: true
+  license_secret: kong-enterprise-license
+
+env:
+  role: data_plane
+  database: "off"
+  
+  cluster_control_plane: kong-cp-kong-cluster.kong.svc.cluster.local:8005
+  cluster_telemetry_endpoint: kong-cp-kong-clustertelemetry.kong.svc.cluster.local:8006
+  
+  lua_ssl_trusted_certificate: /etc/secrets/kong-cluster-cert/tls.crt
+  cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
+  cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key 
+
+proxy:
+  enabled: true
+  type: LoadBalancer  
+  http:
+    enabled: true
+  tls:
+    enabled: false  
+
+admin:
+  enabled: false
+
+manager:
+  enabled: false

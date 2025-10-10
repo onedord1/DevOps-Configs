@@ -1,0 +1,72 @@
+# values-cp.yaml (Corrected)
+ingressController:
+  enabled: false
+
+image:
+  repository: kong/kong-gateway
+  tag: "3.12"
+
+secretVolumes:
+  - kong-cluster-cert
+
+# enterprise:
+#   enabled: true
+#   license_secret: kong-enterprise-license
+
+env:
+  role: control_plane
+  cluster_cert: /etc/secrets/kong-cluster-cert/tls.crt
+  cluster_cert_key: /etc/secrets/kong-cluster-cert/tls.key
+  database: postgres
+  pg_database: kong
+  pg_user: kong_admin
+  pg_password: "kongPass1234"
+  pg_host: kong-postgres.kong.svc.cluster.local
+  pg_ssl: "off"
+  
+  admin_gui_auth: basic-auth
+  enforce_rbac: "on"
+  admin_gui_session_conf: |
+    {
+      "secret": "Y29vbGJlYW5z",
+      "cookie_name": "kong_admin_session",
+      "cookie_secure": false,
+      "cookie_same_site": "Lax",
+      "storage": "kong",
+      "cookie_lifetime": 3600,
+      "cookie_renew": 600
+    }
+  # username: "kong"
+  password: "kong"
+  
+  admin_gui_listen: "0.0.0.0:8002"
+  admin_gui_url: "http://kong-cp-kong-manager.kong.svc.cluster.local:8002"
+  admin_gui_api_url: "http://172.17.19.11:30889"
+
+admin:
+  enabled: true
+  http:
+    enabled: true
+  tls:
+    enabled: false
+
+cluster:
+  enabled: true
+  tls:
+    enabled: true
+
+clustertelemetry:
+  enabled: true
+  tls:
+    enabled: true
+
+proxy:
+  enabled: false
+
+manager:
+  enabled: true
+  type: NodePort
+  http:
+    enabled: true
+  tls:
+    enabled: false
