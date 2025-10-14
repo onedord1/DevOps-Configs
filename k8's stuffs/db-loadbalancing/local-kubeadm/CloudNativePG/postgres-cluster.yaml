@@ -1,0 +1,73 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: bmdsales-test-ns
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: bmdsalesdb
+      owner: bmdsales
+      secret:
+        name: postgres-credentials-cnpg
+  storage:
+    size: 5Gi
+    storageClass: longhorn
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "512MB" 
+      wal_buffers: "16MB"
+      checkpoint_completion_target: "0.9"
+      autovacuum_max_workers: "4"
+      autovacuum_naptime: "10s"
+  resources:
+    requests:
+      memory: "1.5Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "900m"
+  primaryUpdateStrategy: unsupervised
+---
+
+
+
+#4vCPU and 8Gi Memory
+# apiVersion: postgresql.cnpg.io/v1
+# kind: Cluster
+# metadata:
+#   name: postgres-cluster
+#   namespace: bmdsales-test-ns
+# spec:
+#   instances: 2
+#   bootstrap:
+#     initdb:
+#       database: bmdsalesdb
+#       owner: bmdsales
+#       secret:
+#         name: postgres-credentials-cnpg
+
+#   storage:
+#     size: 5Gi
+#     storageClass: longhorn
+
+#   postgresql:
+#     parameters:
+#       max_connections: "100"
+#       shared_buffers: "256MB" 
+      
+#       wal_buffers: "4MB"
+#       checkpoint_completion_target: "0.9"
+#       autovacuum_max_workers: "2"
+#       autovacuum_naptime: "30s"  
+#   resources:
+#     requests:
+#       memory: "1Gi"
+#       cpu: "250m"
+#     limits:
+#       memory: "1.5Gi"
+#       cpu: "500m"
+
+#   primaryUpdateStrategy: unsupervised

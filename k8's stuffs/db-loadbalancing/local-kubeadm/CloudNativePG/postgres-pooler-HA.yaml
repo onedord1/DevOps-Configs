@@ -1,0 +1,47 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: postgres-rw-pooler
+  namespace: bmdsales-test-ns
+spec:
+  cluster:
+    name: postgres-cluster
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+  instances: 1
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: postgres-ro-pooler
+  namespace: bmdsales-test-ns
+spec:
+  cluster:
+    name: postgres-cluster
+  type: ro
+  pgbouncer:
+    poolMode: transaction
+  instances: 1
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: bmd-sales-be
+  namespace: bmdsales-qa-ns
+  labels:
+    app: bmd-sales-be
+spec:
+  selector:
+    matchLabels:
+      app: bmd-sales-be
+  template:
+    metadata:
+      labels:
+        app: bmd-sales-be
+    spec:
+      containers:
+      - name: bmd-sales-be
+        image: registry.cloudaes.com/bmd-sales-be/bms_sales_be_qa:14Oct-585
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9009
+          name: http
+        env:
+        - name: DB_RW_HOST
+          value: "postgres-rw-pooler.bmdsales-test-ns.svc.cluster.local"
+        - name: DB_RW_PORT
+          value: "5432"
+        - name: DB_RW_NAME
+          value: "bmdsalesdb"
+        - name: DB_RW_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              key: username
+        - name: DB_RW_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              key: password
+        - name: DB_RO_HOST
+          value: "postgres-ro-pooler.bmdsales-test-ns.svc.cluster.local"
+        - name: DB_RO_PORT
+          value: "5432"
+        - name: DB_RO_NAME
+          value: "bmdsalesdb"
+        - name: DB_RO_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              key: username
+        - name: DB_RO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              key: password
+        - name: UPLOAD_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: bmd-sales-be-config
+              key: UPLOAD_PATH
+        volumeMounts:
+        - name: app-persistent-storage
+          mountPath: /uploads
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+      volumes:
+        - name: app-persistent-storage
+          persistentVolumeClaim:
+            claimName: bmd-sales-be-pvc
+      imagePullSecrets:
+      - name: harbor-registry-secret
