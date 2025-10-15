@@ -6,9 +6,9 @@ import { userCreationThresholds } from '../thresholds/userCreationThresholds.js'
 
 export const options = {
   stages: [
-    { duration: '30s', target: 5 },
-    { duration: '1m', target: 5 },
-    { duration: '30s', target: 0 },
+    { duration: '30s', target: 45 },
+    { duration: '1m', target: 45 },
+    { duration: '30s', target: 40 },
   ],
   thresholds: userCreationThresholds,
 };
