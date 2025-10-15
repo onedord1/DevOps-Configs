@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgpool
+  namespace: bmdsales-qa-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgpool
+  template:
+    metadata:
+      labels:
+        app: pgpool
+    spec:
+      containers:
+      - name: pgpool
+        image: bitnami/pgpool:4.5.0
+        ports:
+        - containerPort: 5432
+        env:
+        # Point PgPool to the CNPG poolers in the other namespace
+        - name: PGPOOL_BACKEND_NODES
+          value: "postgres-rw-pooler.bmdsales-test-ns.svc.cluster.local:5432,postgres-ro-pooler.bmdsales-test-ns.svc.cluster.local:5432"
+        # Health check credentials for PgPool
+        - name: PGPOOL_SR_CHECK_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: postgres-username
+        - name: PGPOOL_SR_CHECK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: postgres-password
+        # Application connection credentials for PgPool
+        - name: PGPOOL_POSTGRES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: username
+        - name: PGPOOL_POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: password
+        # --- KEY SETTINGS FOR READ/WRITE SPLITTING ---
+        - name: PGPOOL_ENABLE_LOAD_BALANCING
+          value: "yes"
+        - name: PGPOOL_LOAD_BALANCE_MODE
+          value: "read_only"
+        - name: PGPOOL_DISABLE_AUTO_FAILBACK
+          value: "yes"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgpool-service
+  namespace: bmdsales-qa-ns
+spec:
+  type: ClusterIP
+  selector:
+    app: pgpool
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

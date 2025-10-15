@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  name: bmd-sales-be
+  namespace: bmdsales-qa-ns
+  labels:
+    app: bmd-sales-be
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bmd-sales-be
+  template:
+    metadata:
+      labels:
+        app: bmd-sales-be
+    spec:
+      containers:
+      - name: bmd-sales-be
+        image: registry.cloudaes.com/bmd-sales-be/bms_sales_be_qa:14Oct-585
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9009
+          name: http
+        env:
+        - name: DB_HOST
+          value: "pgpool-service.bmdsales-qa-ns.svc.cluster.local"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "bmdsalesdb"
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials-cnpg
+              namespace: bmdsales-test-ns
+              key: password
+        # --- OTHER APPLICATION ENV VARS ---
+        - name: UPLOAD_PATH
+          value: "/uploads"
+        volumeMounts:
+        - name: app-persistent-storage
+          mountPath: /uploads
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+      volumes:
+        - name: app-persistent-storage
+          persistentVolumeClaim:
+            claimName: bmd-sales-be-pvc
+      imagePullSecrets:
+      - name: harbor-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  name: bmd-sales-be-service
+  namespace: bmdsales-qa-ns
+spec:
+  selector:
+    app: bmd-sales-be
+  ports:
+    - protocol: TCP
+      port: 9009
+      targetPort: 9009
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  name: bmd-sales-be-pvc
+  namespace: bmdsales-qa-ns
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 4Gi
+  storageClassName: longhorn
