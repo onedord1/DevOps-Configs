@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: db-proxysql-prod
+spec:
+  serviceName: mysql-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      serviceAccountName: mysql
+      initContainers:
+      - name: setup-config
+        image: mysql:8.0
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          POD_NAME=$(cat /etc/podinfo/name)
+          if [ "$POD_NAME" = "mysql-0" ]; then
+            echo "I am the primary. Copying primary config."
+            cp /mnt/config-map/primary.cnf /etc/mysql/conf.d/my.cnf
+          else
+            echo "I am a replica. Copying replica config."
+            cp /mnt/config-map/replica.cnf /etc/mysql/conf.d/my.cnf
+          fi
+        volumeMounts:
+        - name: config-map
+          mountPath: /mnt/config-map
+        - name: config
+          mountPath: /etc/mysql/conf.d
+        - name: podinfo
+          mountPath: /etc/podinfo
+      # --- THE KEY FIX ---
+      # This initContainer generates the final startup script
+      - name: generate-startup-script
+        image: alpine:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo "Installing tools..."
+          apk add --no-cache mysql-client
+          
+          POD_NAME=$(cat /etc/podinfo/name)
+          echo "#!/bin/sh" > /mnt/shared-data/start-mysql.sh
+          echo "set -e" >> /mnt/shared-data/start-mysql.sh
+          echo "echo 'Starting MySQL for pod: $POD_NAME'" >> /mnt/shared-data/start-mysql.sh
+          echo "mysqld --daemonize" >> /mnt/shared-data/start-mysql.sh
+          echo "until mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD --silent; do sleep 2; done" >> /mnt/shared-data/start-mysql.sh
+          
+          if [ "$POD_NAME" = "mysql-0" ]; then
+            echo "echo 'I am the primary. Creating users.'" >> /mnt/shared-data/start-mysql.sh
+            echo "envsubst < /mnt/config-map/setup-users.sql.template | mysql -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD" >> /mnt/shared-data/start-mysql.sh
+          else
+            echo "echo 'I am a replica. Setting up replication.'" >> /mnt/shared-data/start-mysql.sh
+            echo "until getent hosts mysql-write.db-proxysql-prod.svc.cluster.local; do sleep 2; done" >> /mnt/shared-data/start-mysql.sh
+            echo "until mysqladmin ping -h mysql-write.db-proxysql-prod.svc.cluster.local -u root -p$MYSQL_ROOT_PASSWORD --silent; do sleep 2; done" >> /mnt/shared-data/start-mysql.sh
+            echo "envsubst < /mnt/config-map/setup-replication.sql.template | mysql -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD" >> /mnt/shared-data/start-mysql.sh
+          fi
+          
+          echo "echo 'Setup complete. Keeping MySQL server in the foreground.'" >> /mnt/shared-data/start-mysql.sh
+          echo "tail -f /dev/null" >> /mnt/shared-data/start-mysql.sh
+          chmod +x /mnt/shared-data/start-mysql.sh
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: root-password
+        - name: MYSQL_REPLICATION_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: replication-password
+        - name: PROXYSQL_MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: proxysql-secret
+              key: monitor-password
+        volumeMounts:
+        - name: shared-data
+          mountPath: /mnt/shared-data
+        - name: config-map
+          mountPath: /mnt/config-map
+        - name: podinfo
+          mountPath: /etc/podinfo
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        # The main container now just runs the generated script
+        command: ["/bin/sh", "/mnt/shared-data/start-mysql.sh"]
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: root-password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+        - name: shared-data
+          mountPath: /mnt/shared-data
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command: ["sh", "-c", "mysql -h 127.0.0.1 -u root -p$MYSQL_ROOT_PASSWORD -e 'SELECT 1'"]
+          initialDelaySeconds: 5
+          periodSeconds: 2
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      - name: mysqld-exporter
+        image: prom/mysqld-exporter:latest
+        volumeMounts:
+        - name: mysqld-exporter-config
+          mountPath: /.my.cnf
+          subPath: .my.cnf
+        ports:
+        - containerPort: 9104
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: shared-data
+        emptyDir: {}
+      - name: config-map
+        configMap:
+          name: mysql-config
+          defaultMode: 0755
+      - name: mysqld-exporter-config
+        configMap:
+          name: mysqld-exporter-config
+      - name: podinfo
+        downwardAPI:
+          items:
+          - path: "name"
+            fieldRef:
+              fieldPath: metadata.name
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "longhorn"
+      resources:
+        requests:
+          storage: 2Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mysql
+  namespace: db-proxysql-prod
