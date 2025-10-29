@@ -1,0 +1,77 @@
+
+services:
+  console:
+    image: kaderdevops/demofrontend:v1
+    ports:
+      - "2021:80"
+    container_name: fuzzy-console
+    networks: 
+      - app-network
+  puzzle:
+    image: kaderdevops/demofrontend:v2
+    ports:
+      - "2020:80"
+    container_name: puzzle-paradise
+    networks:
+      - app-network
+  node:
+    image: kaderdevops/demobackend:node
+    container_name: node_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=mysqldb
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=cyber_terminal
+      - JWT_SECRET=fQifGHWhIKX1sBrn+qT/bOwW9EOUlZC2P8Chv3mNE6M=
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  python:
+    image: docker.io/kaderdevops/demobackend:pythonfinal
+    container_name: python_backend
+    ports:
+      - "5001:5001"
+    environment:
+      - DB_HOST=mysqldb
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=puzzle_paradise
+      - JWT_SECRET=sVmUNZb59Tn/64H08JzxkAsv252BIyyKFTwYXXmUyyw="
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    container_name: mysqldb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: test  # This will be overridden by init.sql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:
+    driver: bridge
