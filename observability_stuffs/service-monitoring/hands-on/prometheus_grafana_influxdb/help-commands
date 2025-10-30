@@ -1,0 +1,12 @@
+Need to run this after container is up rather than the coantainer is always in restarting mode.
+
+sudo chown -R 1500:1500 /var/lib/docker/volumes/monitoring_influxdb_data/_data
+sudo chmod -R u+rwx /var/lib/docker/volumes/monitoring_influxdb_data/_data
+
+
+Use the CLI inside the InfluxDB container (or via docker exec) with:
+influxdb3 create token --admin
+
+for grafana
+influxdb3 create token --permission "db:metrics:read,write" --name "GrafanaToken"
+

@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: "production"
+    region: "your-region"
+
+rule_files:
+  - "rules/alerts.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node_exporter'
+    file_sd_configs:
+      - files:
+          - "discovery/node-exporters-hosts.yml"
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        regex: '(.*):9100'
+        target_label: instance
+        replacement: '$1'
+
+remote_write:
+  - url: "http://influxdb:8086/api/v2/write?org=myorg&bucket=metrics"
+    bearer_token_file: /run/secrets/influxdb_admin_token
+    write_relabel_configs:
+      - source_labels: [ __name__ ]
+        regex: "go_gc_duration_seconds|go_threads|go_goroutines"
+        action: drop
+      - regex: "__name__|instance|job"
+        action: labelkeep
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]

@@ -1,0 +1,21 @@
+groups:
+  - name: system-alerts
+    interval: 30s
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} down"
+          description: "The Prometheus target {{ $labels.instance }} has been down for more than 2 minutes."
+
+      - alert: HighCpuUsage
+        expr: 100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 85% for more than 5 minutes."
