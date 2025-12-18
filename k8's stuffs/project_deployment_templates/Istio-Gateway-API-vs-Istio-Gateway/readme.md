@@ -131,11 +131,82 @@ kubectl -n default get pods
 kubectl -n default port-forward svc/gateway-api-istio 80
 ```
 
-## HTTP Traffic management
+## Traffic Management Features : HTTP Routes
 
-Feel free to quickly run through the basic [traffic management table](../README.md#traffic-management-features--http-routes) for using `HTTPRoute` routing for traffic. </br>
+[Documentation](https://gateway-api.sigs.k8s.io/api-types/httproute/)
 
-<i>Note: HTTPRoute features are not specific to this controller and should be available to any other gateway API controller that you choose.</i>
+The important fields on HTTP Route we will cover:
+
+* `parentRefs`
+* `sectionName` 
+* `hostnames`
+* `rules` 
+* `matches`
+* `filters`
+
+Feature Table: 
+
+| Feature | Example |
+| ---|---|
+| Route by Hostname | [example](#route-by-hostname)|
+| Route by Path | [example](#route-by-path) | 
+| Route using URL Rewrite | [example](#route-using-url-rewrite)|
+| Header Modification | [example](#requestresponse-header-manipulation)|
+| HTTPS & TLS | [example](#https-and-tls) |
+
+For traffic management, we can take a look at some basic HTTP routes.</br>
+
+### Route by Hostname
+
+We can route by host. </br>
+This will route all traffic that matches the `Host` header with the `hostnames` field: </br>
+
+
+http://example-app-python.com/ 👉🏽 http://python-svc:5000 </br>
+http://example-app-go.com/ 👉🏽 http://go-svc:5000 </br>
+
+```shell
+kubectl apply -f kubernetes/gateway-api/03-httproute-by-hostname.yaml
+```
+
+### Route by Path
+
+We can also route by host and path with different matching strategies. </br>
+
+Exact: </br>
+http://example-app-python.com/ 👉🏽 http://python-svc:5000/ </br>
+http://example-app-go.com/ 👉🏽 http://go-svc:5000/ </br>
+
+PathPrefix: </br>
+http://example-app-python.com/* 👉🏽 http://python-svc:5000/* </br>
+http://example-app-go.com/* 👉🏽 http://go-svc:5000/* </br>
+
+
+```shell
+kubectl apply -f kubernetes/gateway-api/04-httproute-by-path-exact.yaml
+```
+
+### Route using URL Rewrite
+
+We can rewrite the hostname or URL using URL rewrite. </br>
+This way, we can combine our services under one domain and our controller can act as a true API gateway:
+
+http://example-app.com/api/python 👉🏽 http://python-svc:5000/ </br>
+http://example-app.com/api/go 👉🏽 http://go-svc:5000/ </br>
+As well as: </br>
+http://example-app.com/api/go/status 👉🏽 http://go-svc:5000/status </br>
+
+```shell
+kubectl apply -f kubernetes/gateway-api/05-httproute-by-path-rewrite.yaml
+```
+
+### Request\Response Header Manipulation
+
+With Gateway API, you can modify request and response headers. </br>
+This is possible with the `ResponseHeaderModifier` filter </br>
+
+At the time of this recording, Gateway API does not natively support CORS. </br>
+Even with it in the Experimental channel, many controllers do not support it yet. </br>
 
 ## Istio Gateway VS Istio Gateway API
 
