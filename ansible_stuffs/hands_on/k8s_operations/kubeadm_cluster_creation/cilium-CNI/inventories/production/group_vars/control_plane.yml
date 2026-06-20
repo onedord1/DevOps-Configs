@@ -1,0 +1,3 @@
+---
+# Control-plane specific facts.
+node_role: control-plane

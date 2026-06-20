@@ -1,0 +1,22 @@
+# Secrets & local environment
+.env
+*.vault
+vault-password*
+*.key
+*.pem
+
+# Generated kubeconfig / join material
+fetched/
+*.kubeconfig
+admin.conf
+
+# Ansible runtime artefacts
+.ansible_cache/
+*.retry
+collections/
+*.log
+
+# Editor noise
+.DS_Store
+.idea/
+.vscode/

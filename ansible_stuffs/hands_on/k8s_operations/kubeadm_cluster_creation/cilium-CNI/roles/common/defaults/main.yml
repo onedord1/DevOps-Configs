@@ -1,0 +1,24 @@
+---
+# Kernel modules required by Kubernetes networking.
+common_kernel_modules:
+- overlay
+- br_netfilter
+
+# sysctl tuning. rp_filter is relaxed because Cilium's eBPF datapath and L2
+# announcements rely on asymmetric routing being permitted.
+# NOTE: IPv6 has no reverse-path filter, so net.ipv6.conf.all.rp_filter is
+# intentionally omitted (the key does not exist and would fail the module).
+common_sysctl:
+  net.ipv4.ip_forward: 1
+  net.ipv4.conf.all.forwarding: 1
+  net.ipv6.conf.all.forwarding: 1
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.conf.all.rp_filter: 0
+
+common_base_packages:
+- apt-transport-https
+- ca-certificates
+- curl
+- gnupg
+- software-properties-common

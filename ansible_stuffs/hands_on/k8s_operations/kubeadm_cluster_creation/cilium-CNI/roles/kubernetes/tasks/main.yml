@@ -1,0 +1,40 @@
+---
+# =============================================================================
+#  role: kubernetes  —  install pinned kubelet / kubeadm / kubectl
+# =============================================================================
+
+- name: Add the Kubernetes apt signing key
+  ansible.builtin.get_url:
+    url: "{{ k8s_apt_repo_base }}Release.key"
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: "0644"
+    force: false
+
+- name: Convert the signing key to a dearmored keyring
+  ansible.builtin.command:
+    cmd: "gpg --batch --yes --dearmor -o {{ k8s_apt_keyring }} /etc/apt/keyrings/kubernetes-apt-keyring.asc"
+    creates: "{{ k8s_apt_keyring }}"
+
+- name: Add the Kubernetes apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ k8s_apt_keyring }}] {{ k8s_apt_repo_base }} /"
+    filename: kubernetes
+    state: present
+
+- name: Install Kubernetes packages
+  ansible.builtin.apt:
+    name: "{{ k8s_packages }}"
+    state: present
+    update_cache: true
+
+- name: Hold Kubernetes packages at their installed version
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ k8s_packages }}"
+
+- name: Ensure kubelet is enabled
+  ansible.builtin.systemd:
+    name: kubelet
+    enabled: true
+    state: started

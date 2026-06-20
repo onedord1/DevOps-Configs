@@ -1,0 +1,135 @@
+---
+# =============================================================================
+#  role: control_plane  —  kubeadm init (kube-proxy-free) + kubeconfig + token
+# =============================================================================
+
+- name: Check if the cluster is already initialised
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kube_admin_conf
+
+# Detect a stale/broken control plane: admin.conf on disk but the API server
+# isn't actually healthy. We probe the PRIVATE API address (never the public
+# endpoint, which the node can't hairpin to on AWS).
+- name: Probe existing control-plane health
+  when: kube_admin_conf.stat.exists
+  ansible.builtin.command: >-
+    kubectl --server=https://{{ node_ip }}:{{ api_server_port }} --insecure-skip-tls-verify=true --kubeconfig /etc/kubernetes/admin.conf get --raw=/healthz
+  register: cp_health
+  changed_when: false
+  failed_when: false
+
+- name: Fail clearly if a stale/broken control plane is present
+  when:
+  - kube_admin_conf.stat.exists
+  - cp_health.rc != 0
+  ansible.builtin.fail:
+    msg: >-
+      /etc/kubernetes/admin.conf exists but the API server is NOT healthy (healthz rc={{ cp_health.rc }}). This is a partial/broken cluster left by a previous run, so init was skipped and nothing works. Wipe it and retry: `ansible-playbook playbooks/reset.yml && ansible-playbook playbooks/site.yml`
+
+# Fail fast and clearly if the resolved advertise/node IP is not actually
+# present on this host's NIC — otherwise the API server can't bind to it and
+# kubeadm dies with an opaque "wait-control-plane ... context deadline" error.
+- name: Assert the advertise address exists on this node
+  ansible.builtin.assert:
+    that:
+    - node_ip in ansible_all_ipv4_addresses
+    fail_msg: >-
+      node_ip '{{ node_ip }}' is not configured on any interface of this host ({{ ansible_all_ipv4_addresses | join(', ') }}). advertiseAddress must be a local IP. Set K8S_API_ADVERTISE_ADDRESS correctly, or leave it blank to auto-detect. If you recently recreated this instance, clear any stale state and re-run.
+    success_msg: "advertise address {{ node_ip }} is present on this node."
+
+# Align the kubeadm config's kubernetesVersion with the actually installed
+# kubeadm binary so image pulls never drift from the apt-installed version.
+- name: Discover the installed kubeadm version
+  ansible.builtin.command: kubeadm version -o short
+  register: kubeadm_version_raw
+  changed_when: false
+
+- name: Set kubeadm_version fact
+  ansible.builtin.set_fact:
+    kubeadm_version: "{{ kubeadm_version_raw.stdout | trim }}"
+
+- name: Ensure the Kubernetes config directory exists
+  ansible.builtin.file:
+    path: /etc/kubernetes
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render the kubeadm configuration
+  ansible.builtin.template:
+    src: kubeadm-config.yaml.j2
+    dest: "{{ kubeadm_config_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Pull control-plane images ahead of init
+  ansible.builtin.command: "kubeadm config images pull --config {{ kubeadm_config_path }}"
+  when: not kube_admin_conf.stat.exists
+  changed_when: true
+
+- name: Initialise the control plane (kube-proxy skipped)
+  ansible.builtin.command: >-
+    kubeadm init --config {{ kubeadm_config_path }} --skip-phases=addon/kube-proxy --upload-certs --ignore-preflight-errors=Swap
+  when: not kube_admin_conf.stat.exists
+  register: kubeadm_init
+  changed_when: kubeadm_init.rc == 0
+
+# ---- node-local kubeconfig (server -> private API IP) -----------------------
+- name: Create a node-local kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ local_kubeconfig_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Point the node-local kubeconfig at the private API address
+  ansible.builtin.replace:
+    path: "{{ local_kubeconfig_path }}"
+    regexp: '^(\s*server:\s*https://)\S+'
+    replace: '\g<1>{{ node_ip }}:{{ api_server_port }}'
+
+# ---- user kubeconfig --------------------------------------------------------
+- name: Create the user's .kube directory
+  ansible.builtin.file:
+    path: "{{ kubeconfig_user_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0750"
+
+- name: Install kubeconfig for the login user (node-local, private endpoint)
+  ansible.builtin.copy:
+    src: "{{ local_kubeconfig_path }}"
+    dest: "{{ kubeconfig_user_dir }}/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+
+- name: Auto-export KUBECONFIG for every login shell that has a kubeconfig
+  ansible.builtin.copy:
+    dest: /etc/profile.d/kubeconfig.sh
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible — make `kubectl` work out of the box on login.
+      if [ -f "$HOME/.kube/config" ]; then
+        export KUBECONFIG="$HOME/.kube/config"
+      fi
+
+# ---- join material (kept in memory, never written to disk) ------------------
+- name: Generate a fresh worker join command
+  ansible.builtin.command: >-
+    kubeadm token create --print-join-command --ttl 2h --kubeconfig {{ local_kubeconfig_path }}
+  register: join_command_raw
+  changed_when: false
+
+- name: Publish the join command to the play
+  ansible.builtin.set_fact:
+    worker_join_command: "{{ join_command_raw.stdout | trim }}"

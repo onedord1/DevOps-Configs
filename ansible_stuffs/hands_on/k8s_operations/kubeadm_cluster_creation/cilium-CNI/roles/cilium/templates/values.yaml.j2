@@ -1,0 +1,51 @@
+# Managed by Ansible — Cilium {{ cilium_version }} values
+# kube-proxy is fully replaced; Cilium owns pod networking + L2 LoadBalancing.
+
+# ---- kube-proxy replacement -------------------------------------------------
+kubeProxyReplacement: true
+k8sServiceHost: "{{ k8s_service_host }}"
+k8sServicePort: {{ api_server_port }}
+
+# eBPF datapath
+bpf:
+  masquerade: true
+
+# ---- IPAM (pod CIDR) --------------------------------------------------------
+ipam:
+  mode: cluster-pool
+  operator:
+    clusterPoolIPv4PodCIDRList:
+      - "{{ pod_cidr }}"
+    clusterPoolIPv4MaskSize: 24
+
+operator:
+  replicas: {{ cilium_operator_replicas }}
+
+# ---- L2 LoadBalancer (replaces MetalLB) ------------------------------------
+# Enables CiliumLoadBalancerIPPool + CiliumL2AnnouncementPolicy handling.
+l2announcements:
+  enabled: true
+  leaseDuration: "15s"
+  leaseRenewDeadline: "5s"
+  leaseRetryPeriod: "2s"
+
+externalIPs:
+  enabled: true
+
+loadBalancer:
+  algorithm: maglev
+
+# L2 announcements hit the API server frequently; raise the client limits.
+k8sClientRateLimit:
+  qps: 50
+  burst: 100
+
+# ---- Observability ----------------------------------------------------------
+hubble:
+  enabled: {{ cilium_hubble_enabled | string | lower }}
+{% if cilium_hubble_enabled %}
+  relay:
+    enabled: true
+  ui:
+    enabled: {{ cilium_hubble_ui_enabled | string | lower }}
+{% endif %}

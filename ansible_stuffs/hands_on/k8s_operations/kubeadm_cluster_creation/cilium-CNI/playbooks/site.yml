@@ -1,0 +1,69 @@
+---
+# =============================================================================
+#  site.yml  —  end-to-end kubeadm + Cilium (kube-proxy-free) deployment
+# -----------------------------------------------------------------------------
+#  Run:  ansible-playbook playbooks/site.yml
+#  (connection/IPs/versions all come from the environment — see .env.example)
+# =============================================================================
+
+- name: Prepare all nodes (OS, containerd, Kubernetes packages)
+  hosts: k8s_cluster
+  become: true
+  gather_facts: true
+  roles:
+  - common
+  - containerd
+  - kubernetes
+
+- name: Initialise the control plane and install Cilium
+  hosts: control_plane
+  become: true
+  gather_facts: true
+  roles:
+  - control_plane
+  - cilium
+
+- name: Join worker nodes
+  hosts: workers
+  become: true
+  gather_facts: true
+  roles:
+  - worker
+
+- name: Verify the cluster
+  hosts: control_plane
+  become: true
+  gather_facts: false
+  tasks:
+  - name: Wait for all nodes to report Ready
+    ansible.builtin.command: >-
+      kubectl wait --for=condition=Ready nodes --all --timeout=300s
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin-local.conf
+    changed_when: false
+
+  - name: Confirm kube-proxy is absent (replaced by Cilium)
+    ansible.builtin.command: >-
+      kubectl -n kube-system get ds kube-proxy --ignore-not-found
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin-local.conf
+    register: kube_proxy_ds
+    changed_when: false
+
+  - name: Assert kube-proxy was not installed
+    ansible.builtin.assert:
+      that:
+      - "'kube-proxy' not in kube_proxy_ds.stdout"
+      success_msg: "kube-proxy is fully replaced by Cilium."
+      fail_msg: "kube-proxy DaemonSet found — kube-proxy replacement did not take effect."
+
+  - name: Show cluster nodes
+    ansible.builtin.command: kubectl get nodes -o wide
+    environment:
+      KUBECONFIG: /etc/kubernetes/admin-local.conf
+    register: nodes_out
+    changed_when: false
+
+  - name: Render node summary
+    ansible.builtin.debug:
+      msg: "{{ nodes_out.stdout_lines }}"

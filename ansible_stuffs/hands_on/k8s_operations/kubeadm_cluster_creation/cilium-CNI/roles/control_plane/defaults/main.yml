@@ -1,0 +1,9 @@
+---
+kubeadm_config_path: /etc/kubernetes/kubeadm-config.yaml
+containerd_socket: /run/containerd/containerd.sock
+# Where the admin kubeconfig is copied for the login user.
+kubeconfig_user_dir: "/home/{{ ansible_user }}/.kube"
+# kubeadm writes admin.conf pointing at controlPlaneEndpoint (often a public IP
+# the node itself cannot reach on AWS). This is a copy whose server points at
+# the node's PRIVATE API address for reliable node-local kubectl/helm/kubeadm.
+local_kubeconfig_path: /etc/kubernetes/admin-local.conf

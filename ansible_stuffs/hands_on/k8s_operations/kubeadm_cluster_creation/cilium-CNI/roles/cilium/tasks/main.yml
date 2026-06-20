@@ -1,0 +1,97 @@
+---
+# =============================================================================
+#  role: cilium  —  Helm install (kube-proxy-free) + L2 LoadBalancer
+#  Runs on the control-plane node only.
+# =============================================================================
+
+- name: Check the currently installed Helm version (if any)
+  ansible.builtin.command: "{{ helm_install_dir }}/helm version --short --template '{{ '{{' }}.Version{{ '}}' }}'"
+  register: helm_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download and install Helm from the official signed release
+  when: helm_version not in (helm_installed.stdout | default(''))
+  block:
+  - name: Download the Helm release tarball (SHA256-verified)
+    ansible.builtin.get_url:
+      url: "{{ helm_base_url }}/{{ helm_dist }}"
+      dest: "/tmp/{{ helm_dist }}"
+      checksum: "sha256:{{ helm_base_url }}/{{ helm_dist }}.sha256sum"
+      mode: "0644"
+
+  - name: Extract the Helm tarball
+    ansible.builtin.unarchive:
+      src: "/tmp/{{ helm_dist }}"
+      dest: /tmp
+      remote_src: true
+
+  - name: Install the Helm binary
+    ansible.builtin.copy:
+      src: "/tmp/linux-{{ helm_arch }}/helm"
+      dest: "{{ helm_install_dir }}/helm"
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0755"
+
+  - name: Clean up Helm download artefacts
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+    - "/tmp/{{ helm_dist }}"
+    - "/tmp/linux-{{ helm_arch }}"
+
+- name: Add the Cilium Helm repository
+  kubernetes.core.helm_repository:
+    name: cilium
+    repo_url: "{{ cilium_helm_repo }}"
+    binary_path: "{{ helm_install_dir }}/helm"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Render Cilium Helm values
+  ansible.builtin.template:
+    src: values.yaml.j2
+    dest: "{{ cilium_values_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Install / upgrade Cilium
+  kubernetes.core.helm:
+    name: cilium
+    chart_ref: cilium/cilium
+    chart_version: "{{ cilium_version }}"
+    release_namespace: "{{ cilium_namespace }}"
+    binary_path: "{{ helm_install_dir }}/helm"
+    values_files:
+    - "{{ cilium_values_path }}"
+    wait: true
+    atomic: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Wait for the Cilium DaemonSet to be ready
+  ansible.builtin.command: >-
+    kubectl -n {{ cilium_namespace }} rollout status ds/cilium --timeout=300s
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  changed_when: false
+
+- name: Render the L2 LoadBalancer manifest
+  ansible.builtin.template:
+    src: l2-announcement.yaml.j2
+    dest: "{{ cilium_l2_manifest_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Apply the Cilium L2 LoadBalancer configuration
+  ansible.builtin.command: >-
+    kubectl apply -f {{ cilium_l2_manifest_path }}
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: l2_apply
+  changed_when: "'created' in l2_apply.stdout or 'configured' in l2_apply.stdout"

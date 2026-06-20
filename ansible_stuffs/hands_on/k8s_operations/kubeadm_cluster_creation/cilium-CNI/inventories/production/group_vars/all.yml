@@ -1,0 +1,55 @@
+---
+# =============================================================================
+#  group_vars/all.yml  —  global, env-driven configuration
+# -----------------------------------------------------------------------------
+#  Every value resolves from an environment variable with a safe default, so
+#  the playbooks stay generic and reusable. `| default(x, true)` makes empty
+#  strings fall back to the default too.
+# =============================================================================
+
+# ---- SSH / connection -------------------------------------------------------
+ansible_user: "{{ lookup('env', 'K8S_SSH_USER') | default('ubuntu', true) }}"
+ansible_port: "{{ lookup('env', 'K8S_SSH_PORT') | default('22', true) }}"
+ansible_ssh_private_key_file: "{{ lookup('env', 'K8S_SSH_KEY') | default('~/.ssh/id_rsa', true) }}"
+ansible_python_interpreter: /usr/bin/python3
+
+# ---- Cluster identity / versions -------------------------------------------
+control_plane_node_name: "{{ lookup('env', 'K8S_CONTROL_PLANE_NAME') | default('control-plane', true) }}"
+k8s_minor_version: "{{ lookup('env', 'K8S_MINOR_VERSION') | default('1.32', true) }}"
+cilium_version: "{{ lookup('env', 'CILIUM_VERSION') | default('1.16.6', true) }}"
+cilium_namespace: "{{ lookup('env', 'HELM_CHART_NAMESPACE') | default('kube-system', true) }}"
+
+# ---- Networking -------------------------------------------------------------
+pod_cidr: "{{ lookup('env', 'K8S_POD_CIDR') | default('192.168.0.0/16', true) }}"
+service_cidr: "{{ lookup('env', 'K8S_SERVICE_CIDR') | default('10.96.0.0/12', true) }}"
+api_server_port: "{{ lookup('env', 'K8S_SERVICE_PORT') | default('6443', true) }}"
+
+# Per-node primary IPv4 (the address kubeadm binds the API server to —
+# advertiseAddress MUST be an IP that exists on the node's NIC).
+# Empty env -> auto-detected fact (works on NATed clouds).
+node_ip: "{{ lookup('env', 'K8S_API_ADVERTISE_ADDRESS') | default(ansible_default_ipv4.address, true) }}"
+
+# Public/stable endpoint baked into the kubeconfig "server:" field and the API
+# server certificate. Can be a PUBLIC IP or a DNS NAME so the cluster is
+# reachable from anywhere. Empty env -> falls back to the control-plane node_ip.
+control_plane_endpoint: "{{ lookup('env', 'K8S_CONTROL_PLANE_ENDPOINT') | default(hostvars[groups['control_plane'][0]].node_ip, true) }}"
+
+# Extra Subject Alternative Names for the API server cert (comma-separated in
+# the env, e.g. "k8s.example.com,10.0.0.10,1.2.3.4"). The node IP and the
+# control-plane endpoint are always included automatically.
+api_cert_sans_extra: "{{ (lookup('env', 'K8S_API_CERT_SANS') | default('', true)).split(',') | map('trim') | reject('equalto', '') | list }}"
+api_cert_sans: "{{ ([hostvars[groups['control_plane'][0]].node_ip, control_plane_endpoint] + api_cert_sans_extra) | unique | list }}"
+
+# Address Cilium agents use to reach the API server when kube-proxy is absent.
+# Kept as the in-cluster (private) control-plane IP for reliability; override
+# with K8S_SERVICE_HOST only if pods must reach the API via a different address.
+k8s_service_host: "{{ lookup('env', 'K8S_SERVICE_HOST') | default(hostvars[groups['control_plane'][0]].node_ip, true) }}"
+
+# ---- Cilium L2 LoadBalancer (MetalLB replacement) --------------------------
+cilium_lb_ip_cidr: "{{ lookup('env', 'CILIUM_LB_IP_CIDR') | default('172.17.17.200/29', true) }}"
+cilium_l2_interface: "{{ lookup('env', 'CILIUM_L2_INTERFACE') | default('^e(n|th).*', true) }}"
+cilium_l2_workers_only: "{{ lookup('env', 'CILIUM_L2_WORKERS_ONLY') | default('true', true) | bool }}"
+
+# ---- Observability ----------------------------------------------------------
+cilium_hubble_enabled: "{{ lookup('env', 'CILIUM_HUBBLE_ENABLED') | default('true', true) | bool }}"
+cilium_hubble_ui_enabled: "{{ lookup('env', 'CILIUM_HUBBLE_UI_ENABLED') | default('true', true) | bool }}"

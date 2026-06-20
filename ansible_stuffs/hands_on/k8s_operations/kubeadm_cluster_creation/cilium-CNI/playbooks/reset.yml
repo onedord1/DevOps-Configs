@@ -1,0 +1,36 @@
+---
+# =============================================================================
+#  reset.yml  —  tear a cluster back down to a clean node state
+# -----------------------------------------------------------------------------
+#  DESTRUCTIVE. Run only when you want to wipe the cluster:
+#     ansible-playbook playbooks/reset.yml
+# =============================================================================
+
+- name: Reset all Kubernetes nodes
+  hosts: k8s_cluster
+  become: true
+  gather_facts: false
+  tasks:
+  - name: Run kubeadm reset
+    ansible.builtin.command: kubeadm reset -f --cri-socket unix:///run/containerd/containerd.sock
+    changed_when: true
+    failed_when: false
+
+  - name: Remove Kubernetes and CNI state
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+    - /etc/kubernetes
+    - /var/lib/etcd
+    - /etc/cni/net.d
+    - "/home/{{ ansible_user }}/.kube"
+
+  - name: Flush iptables / leftover rules
+    ansible.builtin.shell: |
+      iptables -F || true
+      iptables -t nat -F || true
+      iptables -t mangle -F || true
+      iptables -X || true
+    changed_when: true
+    failed_when: false

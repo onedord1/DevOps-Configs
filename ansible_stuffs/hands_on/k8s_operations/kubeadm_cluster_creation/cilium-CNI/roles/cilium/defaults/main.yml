@@ -1,0 +1,18 @@
+---
+# Helm is installed from the official signed binary release (get.helm.sh),
+# verified by SHA256. This avoids the dead baltocdn apt mirror entirely.
+helm_version: "{{ lookup('env', 'HELM_VERSION') | default('v3.16.4', true) }}"
+helm_install_dir: /usr/local/bin
+helm_arch: "{{ 'arm64' if ansible_architecture in ['aarch64', 'arm64'] else 'amd64' }}"
+helm_dist: "helm-{{ helm_version }}-linux-{{ helm_arch }}.tar.gz"
+helm_base_url: "https://get.helm.sh"
+
+cilium_helm_repo: "https://helm.cilium.io/"
+cilium_values_path: /etc/kubernetes/cilium-values.yaml
+cilium_l2_manifest_path: /etc/kubernetes/cilium-l2.yaml
+# Node-local kubeconfig (server = private API IP) so helm/kubectl on the
+# control-plane node never depend on reaching the public endpoint.
+kubeconfig_path: /etc/kubernetes/admin-local.conf
+
+# How many cilium-operator replicas. 1 on a single control-plane cluster.
+cilium_operator_replicas: 1

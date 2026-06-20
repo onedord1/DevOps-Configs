@@ -1,0 +1,9 @@
+---
+# Keep the project clean and production-friendly.
+profile: production
+exclude_paths:
+  - collections/
+  - .ansible_cache/
+  - callback_plugins/
+skip_list:
+  - var-naming[no-role-prefix]   # shared cross-role facts are intentional
